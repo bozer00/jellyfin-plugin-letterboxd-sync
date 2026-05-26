@@ -1,0 +1,104 @@
+<div data-role="page" class="page type-detail pluginConfigurationPage" id="LetterboxdSyncConfigPage" data-require="shared/commonbehavior/commonbehavior,emby-button,emby-input,emby-checkbox,emby-select">
+    <div class="content-primary" style="max-width: 600px; margin: 0 auto; padding: 2em 1.5em; background: rgba(32, 32, 32, 0.6); border-radius: 12px; backdrop-filter: blur(10px); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.05); margin-top: 2em;">
+        
+        <form id="LetterboxdSyncConfigForm">
+            <div class="verticalSection verticalSection-extraborder" style="border: none; padding: 0;">
+                <div class="sectionHeader" style="margin-bottom: 2em; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 1em;">
+                    <h2 class="sectionTitle" style="font-size: 1.8em; font-weight: 600; color: #00a4dc; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">Letterboxd Watchlist Sync</h2>
+                    <p style="color: #b0b0b0; font-size: 0.95em; margin-top: 0.5em;">Automatically sync your Letterboxd watchlist to a Jellyfin playlist.</p>
+                </div>
+
+                <div class="inputContainer" style="margin-bottom: 1.8em;">
+                    <input is="emby-input" type="text" id="txtUsername" label="Letterboxd Username:" required style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1); border-radius: 6px; padding: 10px;" />
+                    <div class="fieldDescription" style="color: #8c8c8c; font-size: 0.85em; margin-top: 0.4em;">The public Letterboxd username whose watchlist you want to sync.</div>
+                </div>
+
+                <div class="selectContainer" style="margin-bottom: 1.8em;">
+                    <select is="emby-select" id="selectUser" label="Sync to User:" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1); border-radius: 6px; padding: 10px;"></select>
+                    <div class="fieldDescription" style="color: #8c8c8c; font-size: 0.85em; margin-top: 0.4em;">The Jellyfin user for whom the playlist will be created and managed.</div>
+                </div>
+
+                <div class="inputContainer" style="margin-bottom: 1.8em;">
+                    <input is="emby-input" type="text" id="txtPlaylistName" label="Playlist Name:" required style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1); border-radius: 6px; padding: 10px;" />
+                    <div class="fieldDescription" style="color: #8c8c8c; font-size: 0.85em; margin-top: 0.4em;">The name of the playlist to create or update in Jellyfin.</div>
+                </div>
+
+                <div class="selectContainer" style="margin-bottom: 2em;">
+                    <select is="emby-select" id="selectSyncMode" label="Sync Mode:" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1); border-radius: 6px; padding: 10px;">
+                        <option value="Append">Append Only (Only add new items)</option>
+                        <option value="Sync">Full Sync (Matches watchlist exactly, removes items no longer in watchlist)</option>
+                    </select>
+                    <div class="fieldDescription" style="color: #8c8c8c; font-size: 0.85em; margin-top: 0.4em;">
+                        <strong>Append Only:</strong> New items are added; nothing is ever removed.<br/>
+                        <strong>Full Sync:</strong> The playlist will match your Letterboxd watchlist exactly (removes watched or removed items, and keeps correct order).
+                    </div>
+                </div>
+
+                <div style="margin-top: 2.5em; display: flex; gap: 1em;">
+                    <button is="emby-button" type="submit" class="raised button-submit block emby-button" style="background: #00a4dc; color: #fff; border-radius: 8px; font-weight: 600; padding: 0.7em 2em; transition: all 0.2s ease-in-out; border: none; box-shadow: 0 4px 14px rgba(0, 164, 220, 0.4);">
+                        <span>Save Settings</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script type="text/javascript">
+        var LetterboxdSyncUniqueId = "f62e84d4-5390-482a-a96d-a60d0ee89311";
+
+        document.querySelector('#LetterboxdSyncConfigPage').addEventListener('pageshow', function () {
+            var page = this;
+            Dashboard.showLoadingMsg();
+
+            Promise.all([
+                ApiClient.getPluginConfiguration(LetterboxdSyncUniqueId),
+                ApiClient.getUsers()
+            ]).then(function (results) {
+                var config = results[0];
+                var users = results[1];
+
+                // Populate users dropdown
+                var selectUser = page.querySelector('#selectUser');
+                selectUser.innerHTML = '';
+                users.forEach(function (user) {
+                    var option = document.createElement('option');
+                    option.value = user.Id;
+                    option.textContent = user.Name;
+                    selectUser.appendChild(option);
+                });
+
+                // Set values from config
+                page.querySelector('#txtUsername').value = config.LetterboxdUsername || '';
+                page.querySelector('#txtPlaylistName').value = config.PlaylistName || 'Letterboxd Watchlist';
+                page.querySelector('#selectSyncMode').value = config.SyncMode || 'Append';
+                if (config.JellyfinUserId) {
+                    page.querySelector('#selectUser').value = config.JellyfinUserId;
+                }
+
+                Dashboard.hideLoadingMsg();
+            }).catch(function (err) {
+                console.error("Error loading Letterboxd Sync configuration:", err);
+                Dashboard.hideLoadingMsg();
+            });
+        });
+
+        document.querySelector('#LetterboxdSyncConfigForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            var page = document.querySelector('#LetterboxdSyncConfigPage');
+            Dashboard.showLoadingMsg();
+
+            ApiClient.getPluginConfiguration(LetterboxdSyncUniqueId).then(function (config) {
+                config.LetterboxdUsername = page.querySelector('#txtUsername').value;
+                config.PlaylistName = page.querySelector('#txtPlaylistName').value;
+                config.SyncMode = page.querySelector('#selectSyncMode').value;
+                config.JellyfinUserId = page.querySelector('#selectUser').value;
+
+                ApiClient.updatePluginConfiguration(LetterboxdSyncUniqueId, config).then(function (result) {
+                    Dashboard.processPluginConfigurationUpdateResult(result);
+                });
+            });
+
+            return false;
+        });
+    </script>
+</div>

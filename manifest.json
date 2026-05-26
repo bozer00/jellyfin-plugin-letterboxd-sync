@@ -1,0 +1,20 @@
+[
+  {
+    "category": "Playlist",
+    "guid": "f62e84d4-5390-482a-a96d-a60d0ee89311",
+    "name": "Letterboxd Watchlist Sync",
+    "description": "Automatically sync your Letterboxd watchlist to a Jellyfin playlist.",
+    "owner": "AndyWirus",
+    "overview": "A scheduled background task plugin that scrapes your public Letterboxd watchlist and updates a Jellyfin playlist with matched movies by title and production year.",
+    "versions": [
+      {
+        "version": "1.0.0.0",
+        "targetAbi": "10.10.0.0",
+        "sourceUrl": "https://raw.githubusercontent.com/bozer00/jellyfin-plugin-letterboxd-sync/main/build/LetterboxdSync.zip",
+        "checksum": "0a672de6aadfd66d0925470f6ee093ab",
+        "changelog": "Initial release of the Letterboxd Watchlist Sync plugin.",
+        "timestamp": "2026-05-26 19:40:00"
+      }
+    ]
+  }
+]
