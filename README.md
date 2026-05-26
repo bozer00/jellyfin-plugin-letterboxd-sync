@@ -4,11 +4,11 @@
   <img src="thumb.png" alt="Jellyfin Letterboxd Watchlist Sync Logo" width="150" height="150" style="border-radius: 20%;" />
 </p>
 
-[![Jellyfin Version](https://img.shields.org/badge/Jellyfin-10.10.x-blue.svg)](https://jellyfin.org)
-[![Target Framework](https://img.shields.org/badge/.NET-8.0-purple.svg)](https://dotnet.microsoft.com)
+[![Jellyfin Version](https://img.shields.org/badge/Jellyfin-10.11.x-blue.svg)](https://jellyfin.org)
+[![Target Framework](https://img.shields.org/badge/.NET-9.0-purple.svg)](https://dotnet.microsoft.com)
 [![Build Tool](https://img.shields.org/badge/SDK-10.0-green.svg)](https://dotnet.microsoft.com)
 
-A server-side plugin for **Jellyfin** (10.10.x+) that automatically synchronizes a user's public **Letterboxd watchlist** to a Jellyfin playlist. 
+A server-side plugin for **Jellyfin** (10.11.x+) that automatically synchronizes a user's public **Letterboxd watchlist** to a Jellyfin playlist. 
 
 The sync task runs in the background at regular intervals (or can be triggered manually), matching movies in your Letterboxd watchlist to your Jellyfin library using normalized title-matching and production years.
 
@@ -80,10 +80,10 @@ You can install this plugin either via the **Jellyfin Plugin Catalog** (recommen
 
 ## Development & Building
 
-The project is built using **.NET 8.0** compatibility for the Jellyfin 10.10.x API.
+The project is built using **.NET 9.0** compatibility for the Jellyfin 10.11.x API.
 
 ### Build Locally
-To build the plugin on your computer, ensure you have the **.NET SDK (8.0, 9.0, or 10.0)** installed:
+To build the plugin on your computer, ensure you have the **.NET SDK (9.0 or 10.0)** installed:
 ```powershell
 dotnet build -c Release -o ./build
 ```
@@ -91,5 +91,5 @@ dotnet build -c Release -o ./build
 ### Build with Docker
 If you do not have the .NET SDK installed locally but have Docker running:
 ```powershell
-docker run --rm -v "${PWD}:/src" -w /src mcr.microsoft.com/dotnet/sdk:8.0 dotnet build -c Release -o ./build
+docker run --rm -v "${PWD}:/src" -w /src mcr.microsoft.com/dotnet/sdk:9.0 dotnet build -c Release -o ./build
 ```

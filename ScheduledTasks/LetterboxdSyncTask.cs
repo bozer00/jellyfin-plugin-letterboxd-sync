@@ -10,7 +10,7 @@ using MediaBrowser.Controller.Playlists;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Model.Tasks;
 using MediaBrowser.Model.Playlists;
-using Jellyfin.Data.Entities;
+using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Data.Enums;
 using Microsoft.Extensions.Logging;
 
@@ -52,7 +52,7 @@ namespace LetterboxdSync.ScheduledTasks
             {
                 new TaskTriggerInfo
                 {
-                    Type = TaskTriggerInfo.TriggerInterval,
+                    Type = TaskTriggerInfoType.IntervalTrigger,
                     IntervalTicks = TimeSpan.FromHours(12).Ticks
                 }
             };
