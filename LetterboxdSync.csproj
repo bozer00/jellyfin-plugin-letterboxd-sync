@@ -6,6 +6,9 @@
     <Nullable>enable</Nullable>
     <AssemblyName>Jellyfin.Plugin.LetterboxdSync</AssemblyName>
     <RootNamespace>LetterboxdSync</RootNamespace>
+    <Version>1.0.1.0</Version>
+    <AssemblyVersion>1.0.1.0</AssemblyVersion>
+    <FileVersion>1.0.1.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
