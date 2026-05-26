@@ -238,20 +238,33 @@ namespace LetterboxdSync.ScheduledTasks
         {
             var list = new List<LetterboxdFilm>();
 
-            var matches = Regex.Matches(html, @"class=""[^""]*film-poster[^""]*""[^>]*data-film-slug=""([^""]+)""[^>]*>.*?alt=""([^""]+)""", RegexOptions.Singleline);
+            // Match each poster component block
+            var blocks = Regex.Matches(html, @"<div[^>]*class=""react-component""[^>]*data-component-class=""LazyPoster""[^>]*>", RegexOptions.IgnoreCase);
             
-            foreach (Match match in matches)
+            foreach (Match blockMatch in blocks)
             {
-                if (match.Groups.Count >= 3)
+                var block = blockMatch.Value;
+                var slugMatch = Regex.Match(block, @"data-item-slug=""([^""]+)""", RegexOptions.IgnoreCase);
+                var nameMatch = Regex.Match(block, @"data-item-name=""([^""]+)""", RegexOptions.IgnoreCase);
+
+                if (slugMatch.Success && nameMatch.Success)
                 {
-                    var slug = match.Groups[1].Value;
-                    var title = System.Net.WebUtility.HtmlDecode(match.Groups[2].Value);
+                    var slug = slugMatch.Groups[1].Value;
+                    var fullName = System.Net.WebUtility.HtmlDecode(nameMatch.Groups[1].Value);
                     
+                    var title = fullName;
                     int? year = null;
-                    var yearMatch = Regex.Match(slug, @"-(\d{4})$");
-                    if (yearMatch.Success && int.TryParse(yearMatch.Groups[1].Value, out var parsedYear))
+
+                    // Extract year from title if it ends in (YYYY)
+                    var yearMatch = Regex.Match(fullName, @"\s*\((\d{4})\)$");
+                    if (yearMatch.Success)
                     {
-                        year = parsedYear;
+                        if (int.TryParse(yearMatch.Groups[1].Value, out var parsedYear))
+                        {
+                            year = parsedYear;
+                        }
+                        // Strip the year from the title for cleaner matching
+                        title = fullName.Substring(0, yearMatch.Index).Trim();
                     }
 
                     list.Add(new LetterboxdFilm
@@ -260,6 +273,33 @@ namespace LetterboxdSync.ScheduledTasks
                         Title = title,
                         Year = year
                     });
+                }
+            }
+
+            // Fallback to legacy class-based matching if no react components found
+            if (list.Count == 0)
+            {
+                var legacyMatches = Regex.Matches(html, @"class=""[^""]*film-poster[^""]*""[^>]*data-film-slug=""([^""]+)""[^>]*>.*?alt=""([^""]+)""", RegexOptions.Singleline);
+                foreach (Match match in legacyMatches)
+                {
+                    if (match.Groups.Count >= 3)
+                    {
+                        var slug = match.Groups[1].Value;
+                        var title = System.Net.WebUtility.HtmlDecode(match.Groups[2].Value);
+                        int? year = null;
+                        var yearMatch = Regex.Match(slug, @"-(\d{4})$");
+                        if (yearMatch.Success && int.TryParse(yearMatch.Groups[1].Value, out var parsedYear))
+                        {
+                            year = parsedYear;
+                        }
+
+                        list.Add(new LetterboxdFilm
+                        {
+                            Slug = slug,
+                            Title = title,
+                            Year = year
+                        });
+                    }
                 }
             }
 

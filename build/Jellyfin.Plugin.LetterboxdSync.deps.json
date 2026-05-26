@@ -6,7 +6,7 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v9.0": {
-      "Jellyfin.Plugin.LetterboxdSync/1.0.1.0": {
+      "Jellyfin.Plugin.LetterboxdSync/1.0.2.0": {
         "runtime": {
           "Jellyfin.Plugin.LetterboxdSync.dll": {}
         }
@@ -14,7 +14,7 @@
     }
   },
   "libraries": {
-    "Jellyfin.Plugin.LetterboxdSync/1.0.1.0": {
+    "Jellyfin.Plugin.LetterboxdSync/1.0.2.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
