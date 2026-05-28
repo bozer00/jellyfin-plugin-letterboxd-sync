@@ -386,11 +386,18 @@ namespace LetterboxdSync.ScheduledTasks
             }
 
             // 3. Fallback to Fuzzy/Title matching
-            var matches = allMovies.Where(m => string.Equals(m.Name, title, StringComparison.OrdinalIgnoreCase)).ToList();
+            var matches = allMovies.Where(m => 
+                string.Equals(m.Name, title, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(m.OriginalTitle, title, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+            
             if (matches.Count == 0)
             {
                 var normalizedTitle = NormalizeTitle(title);
-                matches = allMovies.Where(m => string.Equals(NormalizeTitle(m.Name ?? string.Empty), normalizedTitle, StringComparison.OrdinalIgnoreCase)).ToList();
+                matches = allMovies.Where(m => 
+                    string.Equals(NormalizeTitle(m.Name ?? string.Empty), normalizedTitle, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(NormalizeTitle(m.OriginalTitle ?? string.Empty), normalizedTitle, StringComparison.OrdinalIgnoreCase)
+                ).ToList();
             }
 
             if (year.HasValue)
