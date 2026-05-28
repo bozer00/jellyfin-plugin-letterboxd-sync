@@ -16,3 +16,5 @@ obj/
 # Obsidian local settings and workspace files
 **/.obsidian/
 
+# Obsidian documentation vault (keep private)
+Obsidian - Jellybox/
