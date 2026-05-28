@@ -34,13 +34,56 @@
                     </div>
                 </div>
 
-                <div style="margin-top: 2.5em; display: flex; gap: 1em;">
+                <div class="selectContainer" style="margin-bottom: 2em;">
+                    <select is="emby-select" id="selectSyncInterval" label="Sync Interval:" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1); border-radius: 6px; padding: 10px;">
+                        <option value="1">1 hour</option>
+                        <option value="6">6 hours</option>
+                        <option value="12">12 hours</option>
+                        <option value="24">24 hours</option>
+                    </select>
+                    <div class="fieldDescription" style="color: #8c8c8c; font-size: 0.85em; margin-top: 0.4em;">
+                        How often Jellyfin will automatically run the background synchronization task.
+                    </div>
+                </div>
+
+                <div style="margin-top: 2.5em; display: flex; gap: 1em; align-items: center; flex-wrap: wrap;">
                     <button is="emby-button" type="submit" class="raised button-submit block emby-button" style="background: #00a4dc; color: #fff; border-radius: 8px; font-weight: 600; padding: 0.7em 2em; transition: all 0.2s ease-in-out; border: none; box-shadow: 0 4px 14px rgba(0, 164, 220, 0.4);">
                         <span>Save Settings</span>
+                    </button>
+                    <button is="emby-button" type="button" id="btnSyncNow" class="raised block emby-button" style="background: rgba(255, 255, 255, 0.1); color: #fff; border-radius: 8px; font-weight: 600; padding: 0.7em 2em; transition: all 0.2s ease-in-out; border: 1px solid rgba(255, 255, 255, 0.2);">
+                        <span>Sync Now</span>
                     </button>
                 </div>
             </div>
         </form>
+
+        <div id="syncSummaryPanel" class="verticalSection" style="margin-top: 2.5em; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 2em; display: none;">
+            <h3 style="font-size: 1.4em; font-weight: 600; color: #fff; margin-bottom: 1em;">Last Sync Match Summary</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1em; margin-bottom: 1.5em;">
+                <div style="background: rgba(255, 255, 255, 0.05); padding: 1.2em 1em; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05); text-align: center; backdrop-filter: blur(5px);">
+                    <div style="font-size: 0.85em; color: #8c8c8c; margin-bottom: 0.5em; text-transform: uppercase; letter-spacing: 0.5px;">Last Sync Run</div>
+                    <div id="summaryLastSyncTime" style="font-size: 1.05em; font-weight: bold; color: #fff;">-</div>
+                </div>
+                <div style="background: rgba(255, 255, 255, 0.05); padding: 1.2em 1em; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05); text-align: center; backdrop-filter: blur(5px);">
+                    <div style="font-size: 0.85em; color: #8c8c8c; margin-bottom: 0.5em; text-transform: uppercase; letter-spacing: 0.5px;">Watchlist Total</div>
+                    <div id="summaryTotalCount" style="font-size: 1.6em; font-weight: bold; color: #00a4dc;">-</div>
+                </div>
+                <div style="background: rgba(255, 255, 255, 0.05); padding: 1.2em 1em; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05); text-align: center; backdrop-filter: blur(5px);">
+                    <div style="font-size: 0.85em; color: #8c8c8c; margin-bottom: 0.5em; text-transform: uppercase; letter-spacing: 0.5px;">Matched in Library</div>
+                    <div id="summaryMatchedCount" style="font-size: 1.6em; font-weight: bold; color: #10b981;">-</div>
+                </div>
+            </div>
+            <div id="unmatchedSection" style="display: none; margin-top: 1.5em;">
+                <h4 style="font-size: 1.1em; font-weight: 600; color: #ef4444; margin-bottom: 0.8em; display: flex; align-items: center; gap: 0.5em;">
+                    <span>⚠️ Unmatched Watchlist Films</span>
+                    <span id="unmatchedCountBadge" style="background: #ef4444; color: #fff; font-size: 0.75em; padding: 2px 6px; border-radius: 10px; font-weight: bold;">0</span>
+                </h4>
+                <div style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05); padding: 0.8em;">
+                    <ul id="unmatchedList" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5em;">
+                    </ul>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script type="text/javascript">
@@ -71,8 +114,67 @@
                 page.querySelector('#txtUsername').value = config.LetterboxdUsername || '';
                 page.querySelector('#txtPlaylistName').value = config.PlaylistName || 'Letterboxd Watchlist';
                 page.querySelector('#selectSyncMode').value = config.SyncMode || 'Append';
+                page.querySelector('#selectSyncInterval').value = config.SyncIntervalHours || 12;
                 if (config.JellyfinUserId) {
                     page.querySelector('#selectUser').value = config.JellyfinUserId;
+                }
+
+                // Render Sync Statistics
+                if (config.LastSyncTime) {
+                    page.querySelector('#syncSummaryPanel').style.display = 'block';
+                    page.querySelector('#summaryLastSyncTime').textContent = config.LastSyncTime;
+                    page.querySelector('#summaryTotalCount').textContent = config.LastSyncTotalCount || 0;
+                    page.querySelector('#summaryMatchedCount').textContent = config.LastSyncMatchedCount || 0;
+
+                    var unmatchedList = page.querySelector('#unmatchedList');
+                    unmatchedList.innerHTML = '';
+
+                    var unmatched = [];
+                    try {
+                        if (config.LastSyncUnmatchedFilmsJson) {
+                            unmatched = JSON.parse(config.LastSyncUnmatchedFilmsJson);
+                        }
+                    } catch (e) {
+                        console.error("Failed to parse unmatched films:", e);
+                    }
+
+                    if (unmatched && unmatched.length > 0) {
+                        page.querySelector('#unmatchedSection').style.display = 'block';
+                        page.querySelector('#unmatchedCountBadge').textContent = unmatched.length;
+                        unmatched.forEach(function (film) {
+                            var li = document.createElement('li');
+                            li.style.display = 'flex';
+                            li.style.justifyContent = 'space-between';
+                            li.style.alignItems = 'center';
+                            li.style.padding = '0.5em 0.8em';
+                            li.style.background = 'rgba(255,255,255,0.02)';
+                            li.style.border = '1px solid rgba(255,255,255,0.03)';
+                            li.style.borderRadius = '6px';
+                            li.style.fontSize = '0.9em';
+
+                            var titleSpan = document.createElement('span');
+                            titleSpan.style.color = '#e0e0e0';
+                            titleSpan.style.fontWeight = '500';
+                            titleSpan.textContent = film.Title + (film.Year ? ' (' + film.Year + ')' : '');
+
+                            var link = document.createElement('a');
+                            link.href = 'https://letterboxd.com/film/' + film.Slug + '/';
+                            link.target = '_blank';
+                            link.textContent = 'View on Letterboxd ↗';
+                            link.style.color = '#00a4dc';
+                            link.style.textDecoration = 'none';
+                            link.style.fontSize = '0.85em';
+                            link.style.fontWeight = '600';
+
+                            li.appendChild(titleSpan);
+                            li.appendChild(link);
+                            unmatchedList.appendChild(li);
+                        });
+                    } else {
+                        page.querySelector('#unmatchedSection').style.display = 'none';
+                    }
+                } else {
+                    page.querySelector('#syncSummaryPanel').style.display = 'none';
                 }
 
                 Dashboard.hideLoadingMsg();
@@ -91,6 +193,7 @@
                 config.LetterboxdUsername = page.querySelector('#txtUsername').value;
                 config.PlaylistName = page.querySelector('#txtPlaylistName').value;
                 config.SyncMode = page.querySelector('#selectSyncMode').value;
+                config.SyncIntervalHours = parseInt(page.querySelector('#selectSyncInterval').value) || 12;
                 config.JellyfinUserId = page.querySelector('#selectUser').value;
 
                 ApiClient.updatePluginConfiguration(LetterboxdSyncUniqueId, config).then(function (result) {
@@ -99,6 +202,36 @@
             });
 
             return false;
+        });
+
+        document.querySelector('#btnSyncNow').addEventListener('click', function () {
+            var page = document.querySelector('#LetterboxdSyncConfigPage');
+            Dashboard.showLoadingMsg();
+            ApiClient.getJSON(ApiClient.getUrl('ScheduledTasks')).then(function (tasks) {
+                var task = tasks.find(function (t) { return t.Key === 'LetterboxdSyncTask'; });
+                if (task) {
+                    ApiClient.post(ApiClient.getUrl('ScheduledTasks/Running/' + task.Id), {}).then(function () {
+                        Dashboard.hideLoadingMsg();
+                        Dashboard.alert({
+                            message: 'Watchlist synchronization has been triggered in the background! Please reload this page in a few moments to see updated match statistics.'
+                        });
+                    }).catch(function (err) {
+                        console.error("Failed to start scheduled task:", err);
+                        Dashboard.hideLoadingMsg();
+                        Dashboard.alert({
+                            message: 'Failed to trigger synchronization task: ' + err.message
+                        });
+                    });
+                } else {
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert({
+                        message: 'Could not find the Letterboxd Watchlist Sync task. Please restart Jellyfin.'
+                    });
+                }
+            }).catch(function (err) {
+                console.error("Failed to retrieve scheduled tasks:", err);
+                Dashboard.hideLoadingMsg();
+            });
         });
     </script>
 </div>

@@ -13,6 +13,8 @@ using MediaBrowser.Model.Playlists;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Data.Enums;
 using Microsoft.Extensions.Logging;
+using System.IO;
+using System.Text.Json;
 
 namespace LetterboxdSync.ScheduledTasks
 {
@@ -103,13 +105,46 @@ namespace LetterboxdSync.ScheduledTasks
 
             _logger.LogInformation("Syncing to Jellyfin user: {Username}", targetUser.Username);
 
+            // Fetch all movies in the library once to optimize matching performance
+            var allMoviesQuery = new InternalItemsQuery(targetUser)
+            {
+                IncludeItemTypes = new[] { BaseItemKind.Movie },
+                Recursive = true
+            };
+            var allMovies = _libraryManager.GetItemList(allMoviesQuery);
+
+            var cache = LoadCache();
+            bool cacheModified = false;
+
             var matchedMovieIds = new List<Guid>();
+            var unmatchedFilms = new List<UnmatchedFilmInfo>();
             int processed = 0;
+
             foreach (var film in films)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var matchedMovie = FindMovieInLibrary(film.Title, film.Year, targetUser);
+                if (!cache.TryGetValue(film.Slug, out var cacheItem))
+                {
+                    // Delay to respect rate limits
+                    await Task.Delay(1000, cancellationToken);
+
+                    var (tmdbId, imdbId) = await FetchMovieExternalIdsAsync(film.Slug, cancellationToken);
+
+                    cacheItem = new LetterboxdCacheItem
+                    {
+                        Slug = film.Slug,
+                        Title = film.Title,
+                        Year = film.Year,
+                        TmdbId = tmdbId,
+                        ImdbId = imdbId,
+                        CachedAt = DateTime.UtcNow
+                    };
+                    cache[film.Slug] = cacheItem;
+                    cacheModified = true;
+                }
+
+                var matchedMovie = FindMovieInLibrary(film.Title, film.Year, cacheItem.TmdbId, cacheItem.ImdbId, allMovies);
                 if (matchedMovie != null)
                 {
                     matchedMovieIds.Add(matchedMovie.Id);
@@ -117,11 +152,33 @@ namespace LetterboxdSync.ScheduledTasks
                 }
                 else
                 {
+                    unmatchedFilms.Add(new UnmatchedFilmInfo
+                    {
+                        Title = film.Title,
+                        Year = film.Year,
+                        Slug = film.Slug
+                    });
                     _logger.LogWarning("Not matched: '{Title}' ({Year}) not found in Jellyfin.", film.Title, film.Year);
                 }
 
                 processed++;
                 progress.Report(10 + 40 * ((double)processed / films.Count));
+            }
+
+            if (cacheModified)
+            {
+                SaveCache(cache);
+            }
+
+            // Update configuration stats
+            if (Plugin.Instance != null)
+            {
+                var configToUpdate = Plugin.Instance.Configuration;
+                configToUpdate.LastSyncTotalCount = films.Count;
+                configToUpdate.LastSyncMatchedCount = matchedMovieIds.Count;
+                configToUpdate.LastSyncTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                configToUpdate.LastSyncUnmatchedFilmsJson = JsonSerializer.Serialize(unmatchedFilms);
+                Plugin.Instance.SaveConfiguration();
             }
 
             _logger.LogInformation("Successfully matched {MatchedCount} out of {TotalCount} films in Jellyfin library.", matchedMovieIds.Count, films.Count);
@@ -306,54 +363,142 @@ namespace LetterboxdSync.ScheduledTasks
             return list;
         }
 
-        private BaseItem? FindMovieInLibrary(string title, int? year, User user)
+        private BaseItem? FindMovieInLibrary(string title, int? year, string tmdbId, string imdbId, IReadOnlyList<BaseItem> allMovies)
         {
-            var query = new InternalItemsQuery(user)
+            // 1. Try TMDb ID
+            if (!string.IsNullOrEmpty(tmdbId))
             {
-                IncludeItemTypes = new[] { BaseItemKind.Movie },
-                Recursive = true,
-                Name = title
-            };
+                var match = allMovies.FirstOrDefault(m => 
+                    m.ProviderIds != null &&
+                    m.ProviderIds.TryGetValue("Tmdb", out var id) && 
+                    string.Equals(id, tmdbId, StringComparison.OrdinalIgnoreCase));
+                if (match != null) return match;
+            }
 
-            var items = _libraryManager.GetItemList(query);
-            if (items.Count == 0)
+            // 2. Try IMDb ID
+            if (!string.IsNullOrEmpty(imdbId))
             {
-                var allMoviesQuery = new InternalItemsQuery(user)
-                {
-                    IncludeItemTypes = new[] { BaseItemKind.Movie },
-                    Recursive = true
-                };
-                var allMovies = _libraryManager.GetItemList(allMoviesQuery);
-                
-                var matches = allMovies.Where(m => string.Equals(m.Name, title, StringComparison.OrdinalIgnoreCase)).ToList();
-                if (matches.Count == 0)
-                {
-                    var normalizedTitle = NormalizeTitle(title);
-                    matches = allMovies.Where(m => string.Equals(NormalizeTitle(m.Name), normalizedTitle, StringComparison.OrdinalIgnoreCase)).ToList();
-                }
+                var match = allMovies.FirstOrDefault(m => 
+                    m.ProviderIds != null &&
+                    m.ProviderIds.TryGetValue("Imdb", out var id) && 
+                    string.Equals(id, imdbId, StringComparison.OrdinalIgnoreCase));
+                if (match != null) return match;
+            }
 
-                if (year.HasValue)
-                {
-                    var yearMatch = matches.FirstOrDefault(m => m.ProductionYear == year.Value);
-                    if (yearMatch != null) return yearMatch;
-                }
-
-                return matches.FirstOrDefault();
+            // 3. Fallback to Fuzzy/Title matching
+            var matches = allMovies.Where(m => string.Equals(m.Name, title, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (matches.Count == 0)
+            {
+                var normalizedTitle = NormalizeTitle(title);
+                matches = allMovies.Where(m => string.Equals(NormalizeTitle(m.Name ?? string.Empty), normalizedTitle, StringComparison.OrdinalIgnoreCase)).ToList();
             }
 
             if (year.HasValue)
             {
-                var yearMatch = items.FirstOrDefault(m => m.ProductionYear == year.Value);
+                var yearMatch = matches.FirstOrDefault(m => m.ProductionYear == year.Value);
                 if (yearMatch != null) return yearMatch;
             }
 
-            return items.FirstOrDefault();
+            return matches.FirstOrDefault();
         }
 
         private string NormalizeTitle(string title)
         {
             if (string.IsNullOrEmpty(title)) return title;
             return Regex.Replace(title.ToLowerInvariant(), @"[^a-z0-9]", "");
+        }
+
+        private Dictionary<string, LetterboxdCacheItem> LoadCache()
+        {
+            var cacheFile = GetCacheFilePath();
+            if (File.Exists(cacheFile))
+            {
+                try
+                {
+                    var json = File.ReadAllText(cacheFile);
+                    var list = JsonSerializer.Deserialize<List<LetterboxdCacheItem>>(json);
+                    if (list != null)
+                    {
+                        return list.ToDictionary(item => item.Slug, StringComparer.OrdinalIgnoreCase);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to load Letterboxd cache.");
+                }
+            }
+            return new Dictionary<string, LetterboxdCacheItem>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        private void SaveCache(Dictionary<string, LetterboxdCacheItem> cache)
+        {
+            var cacheFile = GetCacheFilePath();
+            try
+            {
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                var json = JsonSerializer.Serialize(cache.Values.ToList(), options);
+                File.WriteAllText(cacheFile, json);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save Letterboxd cache.");
+            }
+        }
+
+        private string GetCacheFilePath()
+        {
+            var configPath = Plugin.Instance?.ConfigurationFilePath;
+            if (string.IsNullOrEmpty(configPath))
+            {
+                return Path.Combine(Path.GetTempPath(), "LetterboxdCache.json");
+            }
+            return Path.Combine(Path.GetDirectoryName(configPath) ?? string.Empty, "LetterboxdCache.json");
+        }
+
+        private async Task<(string TmdbId, string ImdbId)> FetchMovieExternalIdsAsync(string slug, CancellationToken cancellationToken)
+        {
+            var url = $"https://letterboxd.com/film/{slug}/";
+            _logger.LogInformation("Fetching film details from {Url}", url);
+            try
+            {
+                var response = await _httpClient.GetAsync(url, cancellationToken);
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    return (string.Empty, string.Empty);
+                }
+                response.EnsureSuccessStatusCode();
+                var html = await response.Content.ReadAsStringAsync(cancellationToken);
+
+                string tmdbId = string.Empty;
+                string imdbId = string.Empty;
+
+                var tmdbMatch = Regex.Match(html, @"themoviedb\.org/movie/(\d+)", RegexOptions.IgnoreCase);
+                if (tmdbMatch.Success)
+                {
+                    tmdbId = tmdbMatch.Groups[1].Value;
+                }
+                else
+                {
+                    var tmdbMatch2 = Regex.Match(html, @"data-tmdb-id=""(\d+)""", RegexOptions.IgnoreCase);
+                    if (tmdbMatch2.Success)
+                    {
+                        tmdbId = tmdbMatch2.Groups[1].Value;
+                    }
+                }
+
+                var imdbMatch = Regex.Match(html, @"imdb\.com/title/(tt\d+)", RegexOptions.IgnoreCase);
+                if (imdbMatch.Success)
+                {
+                    imdbId = imdbMatch.Groups[1].Value;
+                }
+
+                return (tmdbId, imdbId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching external IDs for film slug {Slug}", slug);
+                return (string.Empty, string.Empty);
+            }
         }
     }
 
@@ -364,5 +509,22 @@ namespace LetterboxdSync.ScheduledTasks
         public string Title { get; set; } = string.Empty;
 
         public int? Year { get; set; }
+    }
+
+    public class LetterboxdCacheItem
+    {
+        public string Slug { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public int? Year { get; set; }
+        public string TmdbId { get; set; } = string.Empty;
+        public string ImdbId { get; set; } = string.Empty;
+        public DateTime CachedAt { get; set; }
+    }
+
+    public class UnmatchedFilmInfo
+    {
+        public string Title { get; set; } = string.Empty;
+        public int? Year { get; set; }
+        public string Slug { get; set; } = string.Empty;
     }
 }
