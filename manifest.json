@@ -24,5 +24,23 @@
         "timestamp": "2026-05-26 19:40:00"
       }
     ]
+  },
+  {
+    "category": "Metadata",
+    "guid": "9f8e404b-014f-4d92-965a-c60318ff24bb",
+    "name": "Letterboxd Ratings",
+    "description": "Fetches average Letterboxd ratings and applies them to Jellyfin movies.",
+    "owner": "AndyWirus",
+    "overview": "A metadata provider plugin that scrapes average ratings from Letterboxd for film items in your library using TMDb/IMDb IDs, featuring local caching and request serialization.",
+    "versions": [
+      {
+        "version": "1.0.0.0",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://raw.githubusercontent.com/bozer00/jellyfin-plugin-letterboxd-sync/main/build/LetterboxdRatings.zip",
+        "checksum": "32983f1fa9fe5bd313d1d6a9ecb93670",
+        "changelog": "Initial release of the Letterboxd Ratings metadata provider plugin.",
+        "timestamp": "2026-05-28 20:00:00"
+      }
+    ]
   }
 ]

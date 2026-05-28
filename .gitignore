@@ -1,6 +1,8 @@
 # Build outputs
 bin/
 obj/
+build/LetterboxdSync/
+build/LetterboxdRatings/
 
 # Visual Studio cache and settings
 .vs/

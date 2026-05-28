@@ -1,0 +1,63 @@
+<div data-role="page" class="page type-detail pluginConfigurationPage" id="LetterboxdRatingsConfigPage" data-require="shared/commonbehavior/commonbehavior,emby-button,emby-input,emby-checkbox,emby-select">
+    <div class="content-primary" style="max-width: 600px; margin: 0 auto; padding: 2em 1.5em; background: rgba(32, 32, 32, 0.6); border-radius: 12px; backdrop-filter: blur(10px); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.05); margin-top: 2em;">
+        
+        <form id="LetterboxdRatingsConfigForm">
+            <div class="verticalSection verticalSection-extraborder" style="border: none; padding: 0;">
+                <div class="sectionHeader" style="margin-bottom: 2em; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 1em;">
+                    <h2 class="sectionTitle" style="font-size: 1.8em; font-weight: 600; color: #00a4dc; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">Letterboxd Ratings Configuration</h2>
+                    <p style="color: #b0b0b0; font-size: 0.95em; margin-top: 0.5em;">Configure how Letterboxd average ratings are integrated into your movie library.</p>
+                </div>
+
+                <div class="selectContainer" style="margin-bottom: 2em;">
+                    <select is="emby-select" id="selectRatingMapping" label="Letterboxd Rating Mapping:" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1); border-radius: 6px; padding: 10px;">
+                        <option value="Community">Jellyfin Community Rating (0-10)</option>
+                        <option value="Critic">Jellyfin Critic Rating (0-100)</option>
+                        <option value="Both">Both (Community and Critic)</option>
+                    </select>
+                    <div class="fieldDescription" style="color: #8c8c8c; font-size: 0.85em; margin-top: 0.4em;">
+                        Choose where the Letterboxd average rating (converted from a 5-star scale) is saved in movie metadata.
+                    </div>
+                </div>
+
+                <div style="margin-top: 2.5em; display: flex; gap: 1em; align-items: center; flex-wrap: wrap;">
+                    <button is="emby-button" type="submit" class="raised button-submit block emby-button" style="background: #00a4dc; color: #fff; border-radius: 8px; font-weight: 600; padding: 0.7em 2em; transition: all 0.2s ease-in-out; border: none; box-shadow: 0 4px 14px rgba(0, 164, 220, 0.4);">
+                        <span>Save Settings</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script type="text/javascript">
+        var LetterboxdRatingsUniqueId = "9f8e404b-014f-4d92-965a-c60318ff24bb";
+
+        document.querySelector('#LetterboxdRatingsConfigPage').addEventListener('pageshow', function () {
+            var page = this;
+            Dashboard.showLoadingMsg();
+
+            ApiClient.getPluginConfiguration(LetterboxdRatingsUniqueId).then(function (config) {
+                page.querySelector('#selectRatingMapping').value = config.RatingMapping || 'Community';
+                Dashboard.hideLoadingMsg();
+            }).catch(function (err) {
+                console.error("Error loading Letterboxd Ratings configuration:", err);
+                Dashboard.hideLoadingMsg();
+            });
+        });
+
+        document.querySelector('#LetterboxdRatingsConfigForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            var page = document.querySelector('#LetterboxdRatingsConfigPage');
+            Dashboard.showLoadingMsg();
+
+            ApiClient.getPluginConfiguration(LetterboxdRatingsUniqueId).then(function (config) {
+                config.RatingMapping = page.querySelector('#selectRatingMapping').value;
+
+                ApiClient.updatePluginConfiguration(LetterboxdRatingsUniqueId, config).then(function (result) {
+                    Dashboard.processPluginConfigurationUpdateResult(result);
+                });
+            });
+
+            return false;
+        });
+    </script>
+</div>
