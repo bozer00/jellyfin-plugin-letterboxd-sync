@@ -126,12 +126,6 @@ Jellybox/
 │   └── configPage.html                # Admin dashboard UI (glassmorphism-styled)
 ├── ScheduledTasks/
 │   └── LetterboxdSyncTask.cs          # Core sync logic (scraping, matching, playlist ops)
-├── Obsidian - Jellybox/               # Developer documentation vault (Obsidian markdown)
-│   ├── Welcome.md
-│   ├── Project Overview.md
-│   ├── Technical Architecture.md
-│   ├── Design Decisions.md
-│   └── Roadmap & Extensions.md
 └── build/                             # Compiled output (gitignored)
 ```
 
@@ -142,10 +136,10 @@ Jellybox/
 - [x] Automatic watchlist sync (Append & Full Sync modes)
 - [x] Fuzzy title + year matching
 - [x] Glassmorphism admin config page
-- [ ] TMDb/IMDb ID resolution with local caching
-- [ ] Configurable sync interval (1h / 6h / 12h / 24h)
-- [ ] "Sync Now" button in the config page
-- [ ] Matched / Unmatched summary panel in UI
+- [x] TMDb/IMDb ID resolution with local caching
+- [x] Configurable sync interval (1h / 6h / 12h / 24h)
+- [x] "Sync Now" button in the config page
+- [x] Matched / Unmatched summary panel in UI
 - [ ] Custom Letterboxd lists support
 - [ ] Multi-user sync profiles
 - [ ] Bidirectional watched-state synchronization
