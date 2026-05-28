@@ -12,3 +12,7 @@ obj/
 # IDE folders
 .idea/
 .vscode/
+
+# Obsidian local settings and workspace files
+**/.obsidian/
+
