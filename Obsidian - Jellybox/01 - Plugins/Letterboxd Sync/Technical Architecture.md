@@ -42,6 +42,11 @@ Stores key-value state serialized as XML by Jellyfin:
 - `JellyfinUserId` (string): Guid of the Jellyfin user to sync library and playlist against.
 - `PlaylistName` (string): Playlist title (defaults to `"Letterboxd Watchlist"`).
 - `SyncMode` (string): `"Append"` or `"Sync"` (Full Sync).
+- `SyncIntervalHours` (int): Hour interval for task trigger (1, 6, 12, 24).
+- `LastSyncTotalCount` (int): Number of watchlist items in latest sync.
+- `LastSyncMatchedCount` (int): Number of matched library items in latest sync.
+- `LastSyncTime` (string): Timestamp of latest sync execution.
+- `LastSyncUnmatchedFilmsJson` (string): JSON string of unmatched films list (slug, title, year).
 
 ### 3. `LetterboxdSyncTask.cs`
 Implements `IScheduledTask` for background execution. 
@@ -76,20 +81,33 @@ If the React parser returns 0 elements, it falls back to:
 
 ---
 
+## 💾 Caching & External ID Scraping Engine
+
+To resolve precise matches, Jellybox scrapes each film's detail page (`https://letterboxd.com/film/{slug}/`) to obtain TMDb and IMDb identifiers. To prevent rate limiting and excessive network overhead:
+
+1. **Local Cache (`LetterboxdCache.json`)**:
+   - Stored in Jellyfin's plugin configuration folder (resolved dynamically via `Path.GetDirectoryName(Plugin.Instance.ConfigurationFilePath)`).
+   - Maps Letterboxd film slugs to `TmdbId`, `ImdbId`, and a timestamp.
+   - Saves cached details at the end of the sync process if new slugs are resolved.
+2. **Metadata Page Parser**:
+   - For items missing from the local cache, the scraper fetches the page, introducing a **1000ms delay** between requests to respect Letterboxd resources.
+   - Extracts the TMDb ID with the pattern `themoviedb\.org/movie/(\d+)` or `data-tmdb-id="(\d+)"`.
+   - Extracts the IMDb ID with the pattern `imdb\.com/title/(tt\d+)`.
+
+---
+
 ## 🔍 Matching & Playlist Logic
 
-1. **Title Normalization**:
-   If exact name matching fails, titles are normalized to a alphanumeric lowercase string to ignore accents, spacing, and punctuation:
-   ```csharp
-   private string NormalizeTitle(string title)
-   {
-       return Regex.Replace(title.ToLowerInvariant(), @"[^a-z0-9]", "");
-   }
-   ```
-2. **Year Matching**:
-   If a year is extracted, the code ensures the production year matches Jellyfin's metadata. If no year was found, it matches the first normalized name match.
-3. **Database Changes**:
-   - **Append Mode**: Queries the playlist items and appends new movie IDs using `_playlistManager.AddItemToPlaylistAsync`.
-   - **Full Sync Mode**: Deletes the old playlist using `_libraryManager.DeleteItem` and creates a fresh one using `_playlistManager.CreatePlaylist` to preserve Letterboxd sorting and handle removals.
+Jellybox fetches the target user's entire movie library into memory once at task startup, then implements a **3-tier cascade matching system**:
+
+1. **TMDb ID Matching**: Checks if a library movie has a matching TMDb provider ID (`Tmdb`).
+2. **IMDb ID Matching**: Checks if a library movie has a matching IMDb provider ID (`Imdb`).
+3. **Fuzzy Title + Year Matching (Fallback)**:
+   - Compares normalized title string (alphanumeric lowercase, ignores accents, spaces, and punctuation).
+   - Validates using production year if available.
+
+### Playlist Management:
+- **Append Mode**: Appends new movie IDs to the existing playlist via `_playlistManager.AddItemToPlaylistAsync`.
+- **Full Sync Mode**: Deletes the existing playlist and recreates it with all matched movie IDs to keep the playlist elements in the exact order of the Letterboxd watchlist.
 
 For expansion planning, check [[Roadmap & Extensions]].

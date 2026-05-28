@@ -17,8 +17,8 @@ This document acts as a development backlog and feature planning note. It outlin
 ## 🗺️ Roadmap Backlog
 
 ### Milestone 1: Robust Metadata Matching (High Priority)
-- [ ] **TMDb/IMDb ID Integration**:
-  - Scraping the specific film detail page (or parsing a Letterboxd data export CSV) to extract TMDb/IMDb ID.
+- [x] **TMDb/IMDb ID Integration**:
+  - Scraping the specific film detail page to extract TMDb/IMDb ID.
   - Querying Jellyfin's provider IDs directly for $100\%$ accurate matching, bypassing title spelling discrepancies.
 - [ ] **Alternative Title Handling**:
   - Support matching localized/translated movie titles stored in Jellyfin (e.g. matching `Le Voyage de Chihiro` to `Spirited Away`).
@@ -40,10 +40,10 @@ This document acts as a development backlog and feature planning note. It outlin
   - Let users configure independent sync intervals for different lists.
 
 ### Milestone 4: Config Dashboard UI Enhancements (Low Priority)
-- [ ] **Sync Progress Logs**:
+- [x] **Sync Progress Logs**:
   - Display matched vs unmatched items in the config page UI.
   - Provide direct links to search for unmatched items in Jellyfin or Letterboxd.
-- [ ] **Manual Sync Trigger Button**:
+- [x] **Manual Sync Trigger Button**:
   - Include an interactive "Sync Now" button inside the Plugin config UI (bypassing the need to go to Jellyfin's Scheduled Tasks menu).
 
 ---
