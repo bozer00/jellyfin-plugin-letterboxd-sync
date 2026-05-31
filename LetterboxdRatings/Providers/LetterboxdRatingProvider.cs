@@ -8,13 +8,19 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.Entities.Movies;
+using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Providers;
-using MediaBrowser.Model.Providers;
 using Microsoft.Extensions.Logging;
 
 namespace LetterboxdRatings.Providers
 {
-    public class LetterboxdRatingProvider : IRemoteMetadataProvider<Movie, MovieInfo>, IHasOrder
+    /// <summary>
+    /// Custom metadata provider that fetches Letterboxd average ratings and applies them
+    /// directly to movie items. Uses ICustomMetadataProvider to run AFTER all remote
+    /// metadata providers (TMDb, OMDb, etc.) have finished, ensuring the Letterboxd
+    /// rating overwrites any previously set community/critic rating.
+    /// </summary>
+    public class LetterboxdRatingProvider : ICustomMetadataProvider<Movie>, IHasOrder
     {
         private readonly ILogger<LetterboxdRatingProvider> _logger;
         private readonly HttpClient _httpClient;
@@ -30,46 +36,20 @@ namespace LetterboxdRatings.Providers
 
         public string Name => "Letterboxd Ratings";
 
-        public int Order => 3; // Execute after standard providers
+        public int Order => 10; // Execute after all standard providers
 
-        public Task<IEnumerable<RemoteSearchResult>> GetSearchResults(MovieInfo searchInfo, CancellationToken cancellationToken)
+        public async Task<ItemUpdateType> FetchAsync(Movie item, MetadataRefreshOptions options, CancellationToken cancellationToken)
         {
-            // We do not support searching directly on Letterboxd
-            return Task.FromResult<IEnumerable<RemoteSearchResult>>(Array.Empty<RemoteSearchResult>());
-        }
-
-        public Task<HttpResponseMessage> GetImageResponse(string url, CancellationToken cancellationToken)
-        {
-            return _httpClient.GetAsync(url, cancellationToken);
-        }
-
-        public async Task<MetadataResult<Movie>> GetMetadata(MovieInfo info, CancellationToken cancellationToken)
-        {
-            var result = new MetadataResult<Movie>
-            {
-                Item = new Movie(),
-                HasMetadata = false
-            };
-
-            // Copy provider IDs to match correctly
-            if (info.ProviderIds != null)
-            {
-                foreach (var pair in info.ProviderIds)
-                {
-                    result.Item.ProviderIds[pair.Key] = pair.Value;
-                }
-            }
-
-            // Extract IDs
+            // Extract IDs directly from the movie item
             string? tmdbId = null;
             string? imdbId = null;
-            info.ProviderIds?.TryGetValue("Tmdb", out tmdbId);
-            info.ProviderIds?.TryGetValue("Imdb", out imdbId);
+            item.ProviderIds?.TryGetValue("Tmdb", out tmdbId);
+            item.ProviderIds?.TryGetValue("Imdb", out imdbId);
 
             if (string.IsNullOrEmpty(tmdbId) && string.IsNullOrEmpty(imdbId))
             {
-                _logger.LogDebug("No TMDb or IMDb ID available for Letterboxd ratings lookup of '{Name}'", info.Name);
-                return result;
+                _logger.LogDebug("No TMDb or IMDb ID available for Letterboxd ratings lookup of '{Name}'", item.Name);
+                return ItemUpdateType.None;
             }
 
             // Check cache
@@ -77,10 +57,15 @@ namespace LetterboxdRatings.Providers
             var cachedRating = TryGetFromCache(cacheKey);
             if (cachedRating.HasValue)
             {
-                _logger.LogDebug("Letterboxd rating cache hit for '{Name}': {Rating}", info.Name, cachedRating.Value);
-                ApplyRating(result.Item, cachedRating.Value);
-                result.HasMetadata = true;
-                return result;
+                if (cachedRating.Value < 0)
+                {
+                    // Cached negative result — skip without modifying the item
+                    return ItemUpdateType.None;
+                }
+
+                _logger.LogDebug("Letterboxd rating cache hit for '{Name}': {Rating}", item.Name, cachedRating.Value);
+                ApplyRating(item, cachedRating.Value);
+                return ItemUpdateType.MetadataDownload;
             }
 
             // Fetch from Letterboxd with thread-safe rate-limiting
@@ -109,14 +94,14 @@ namespace LetterboxdRatings.Providers
                     url = $"https://letterboxd.com/imdb/{imdbId}/";
                 }
 
-                _logger.LogInformation("Fetching Letterboxd rating for '{Name}' from {Url}", info.Name, url);
-                
+                _logger.LogInformation("Fetching Letterboxd rating for '{Name}' from {Url}", item.Name, url);
+
                 try
                 {
                     var response = await _httpClient.GetAsync(url, cancellationToken);
                     if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                     {
-                        _logger.LogWarning("Letterboxd page not found for '{Name}' at {Url}", info.Name, url);
+                        _logger.LogWarning("Letterboxd page not found for '{Name}' at {Url}", item.Name, url);
                     }
                     else
                     {
@@ -127,19 +112,19 @@ namespace LetterboxdRatings.Providers
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error fetching/parsing Letterboxd rating for '{Name}'", info.Name);
+                    _logger.LogError(ex, "Error fetching/parsing Letterboxd rating for '{Name}'", item.Name);
                 }
 
                 if (rating.HasValue)
                 {
-                    _logger.LogInformation("Successfully resolved Letterboxd rating for '{Name}': {Rating}", info.Name, rating.Value);
+                    _logger.LogInformation("Successfully resolved Letterboxd rating for '{Name}': {Rating}", item.Name, rating.Value);
                     SaveToCache(cacheKey, tmdbId, imdbId, rating.Value);
-                    ApplyRating(result.Item, rating.Value);
-                    result.HasMetadata = true;
+                    ApplyRating(item, rating.Value);
+                    return ItemUpdateType.MetadataDownload;
                 }
                 else
                 {
-                    // Cache negative result (e.g. rating = 0 or -1) to avoid repeated failed lookups
+                    // Cache negative result to avoid repeated failed lookups
                     SaveToCache(cacheKey, tmdbId, imdbId, -1f);
                 }
             }
@@ -148,7 +133,7 @@ namespace LetterboxdRatings.Providers
                 _semaphore.Release();
             }
 
-            return result;
+            return ItemUpdateType.None;
         }
 
         private float? ParseRatingFromHtml(string html)
@@ -159,7 +144,7 @@ namespace LetterboxdRatings.Providers
             {
                 match = Regex.Match(html, @"<meta[^>]*?content=""([0-9.]+)\s+out\s+of\s+5""[^>]*?name=""twitter:data2""[^>]*?>", RegexOptions.IgnoreCase);
             }
-            
+
             // 2. Try JSON-LD aggregateRating fallback
             if (!match.Success)
             {
@@ -233,7 +218,7 @@ namespace LetterboxdRatings.Providers
                 if (File.Exists(cacheFile))
                 {
                     var json = File.ReadAllText(cacheFile);
-                    cache = JsonSerializer.Deserialize<Dictionary<string, LetterboxdRatingCacheItem>>(json) 
+                    cache = JsonSerializer.Deserialize<Dictionary<string, LetterboxdRatingCacheItem>>(json)
                             ?? new Dictionary<string, LetterboxdRatingCacheItem>(StringComparer.OrdinalIgnoreCase);
                 }
                 else
