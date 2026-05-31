@@ -21,6 +21,7 @@ build/LetterboxdRatings/
 # Obsidian documentation vault (keep private)
 Obsidian - Jellybox/
 
-# Local secrets
+# Local secrets and scripts
 .env
 github_token.txt
+create_issue.py
