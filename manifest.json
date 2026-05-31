@@ -11,7 +11,7 @@
         "version": "2.0.1.0",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://raw.githubusercontent.com/bozer00/jellyfin-plugin-letterboxd-sync/main/build/LetterboxdSync.zip",
-        "checksum": "3dd2f81e6d0240ea68e372612bbdf97a",
+        "checksum": "f7e7308a816d107969a66f5e34e1eb0b",
         "changelog": "Fix empty playlist sync bug and prevent recreate-on-sync behaviors (stable GUIDs).",
         "timestamp": "2026-05-31 08:21:00"
       },
@@ -42,12 +42,12 @@
     "overview": "A metadata provider plugin that scrapes average ratings from Letterboxd for film items in your library using TMDb/IMDb IDs, featuring local caching and request serialization.",
     "versions": [
       {
-        "version": "1.0.0.0",
+        "version": "1.0.1.0",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://raw.githubusercontent.com/bozer00/jellyfin-plugin-letterboxd-sync/main/build/LetterboxdRatings.zip",
-        "checksum": "ff9d433b1db92496a9636a27e7553764",
-        "changelog": "Initial release of the Letterboxd Ratings metadata provider plugin.",
-        "timestamp": "2026-05-28 20:00:00"
+        "checksum": "a971a836b42e2e13bad9b7bba4029560",
+        "changelog": "Build targeting net9.0 runtime to resolve NotSupported load failures, and correct checksum validation.",
+        "timestamp": "2026-05-31 08:41:00"
       }
     ]
   }
