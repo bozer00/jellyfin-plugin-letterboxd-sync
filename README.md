@@ -5,8 +5,8 @@
 </p>
 
 [![Jellyfin Version](https://img.shields.io/badge/Jellyfin-10.11.x-blue.svg)](https://jellyfin.org)
-[![Target Framework](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com)
-[![Build Tool](https://img.shields.io/badge/SDK-10.0-green.svg)](https://dotnet.microsoft.com)
+[![Target Framework](https://img.shields.io/badge/.NET-9.0-purple.svg)](https://dotnet.microsoft.com)
+[![Build Tool](https://img.shields.io/badge/SDK-9.0-green.svg)](https://dotnet.microsoft.com)
 
 A collection of server-side plugins for **Jellyfin** (10.11.x+) that integrates **Letterboxd** features directly into your media server.
 
@@ -14,10 +14,11 @@ A collection of server-side plugins for **Jellyfin** (10.11.x+) that integrates 
 
 ## Plugins in this Repository
 
-This repository contains two independent plugins:
+This repository contains three independent plugins:
 
 1.  [Letterboxd Watchlist Sync](#1-letterboxd-watchlist-sync) — Automatically synchronize a user's public Letterboxd watchlist to a Jellyfin playlist.
 2.  [Letterboxd Ratings](#2-letterboxd-ratings) — Fetch average community ratings from Letterboxd and apply them to movie items in your library.
+3.  [Letterboxd Watched Sync](#3-letterboxd-watched-sync) — Automatically mark movies as watched in Jellyfin based on a public Letterboxd watched history.
 
 ---
 
@@ -51,6 +52,19 @@ A metadata provider plugin that fetches average community ratings from Letterbox
 
 ---
 
+## 3. Letterboxd Watched Sync
+
+A scheduled background task plugin that parses a user's public Letterboxd watched history and marks matched movies as played in Jellyfin.
+
+### Features
+-   🔄 **Automatic Scheduled Sync:** Syncs played status automatically at a configurable interval (1h, 6h, 12h, or 24h).
+-   🎯 **Smart Metadata Matching:** Three-tier matching engine (TMDb ID -> IMDb ID -> Fuzzy Title + Year fallback).
+-   💾 **Local ID Cache:** Resolved TMDb/IMDb mappings are cached locally (`LetterboxdWatchedCache.json`) to avoid redundant requests.
+-   ⚠️ **Safety First:** If no Jellyfin user is configured, the task aborts and logs a warning rather than modifying playstates for a default profile.
+-   🎨 **Modern Config UI:** A premium, glassmorphism-styled dashboard page featuring a "Sync Now" button, match summary statistics, and an unmatched films grid (capped at 200 items).
+
+---
+
 ## Installation
 
 You can install either plugin via the **Jellyfin Plugin Catalog** or **manually**.
@@ -70,8 +84,9 @@ You can install either plugin via the **Jellyfin Plugin Catalog** or **manually*
 1.  Download the compiled `.dll` file from the repository releases:
     -   `Jellyfin.Plugin.LetterboxdSync.dll` for the Watchlist Sync.
     -   `Jellyfin.Plugin.LetterboxdRatings.dll` for Ratings.
+    -   `Jellyfin.Plugin.LetterboxdWatchedSync.dll` for Watched Sync.
 2.  Navigate to your Jellyfin server's `plugins` directory.
-3.  Create subdirectories `LetterboxdSync` and `LetterboxdRatings` respectively and paste the corresponding `.dll` inside them.
+3.  Create subdirectories `LetterboxdSync`, `LetterboxdRatings`, and `LetterboxdWatchedSync` respectively and paste the corresponding `.dll` inside them.
 4.  Restart your Jellyfin server.
 
 ---
@@ -90,20 +105,25 @@ You can install either plugin via the **Jellyfin Plugin Catalog** or **manually*
 4.  Go to **Dashboard** -> **Libraries**, click on your Movies library options, and in the **Metadata downloaders** section, make sure **Letterboxd Ratings** is checked. Place it in your preferred order priority.
 5.  Run a metadata refresh on your library to populate the ratings.
 
+### Watched Sync Configuration
+1.  Navigate to **Dashboard** -> **Plugins** -> **Installed** and click **Letterboxd Watched Sync**.
+2.  Configure your Letterboxd Username, Jellyfin User, and Sync Interval.
+3.  Click **Save Settings**, or optionally click **Sync Now** to run an immediate sync.
+
 ---
 
 ## Building Locally
 
-The projects target **.NET 10.0** and require the .NET SDK.
+The projects target **.NET 9.0** and require the .NET SDK.
 
-To build the Watchlist Sync plugin:
+To build all plugins and package them into ZIP archives, run the automated build script:
 ```bash
-cd LetterboxdSync
-dotnet build -c Release -o ../build
+./build.sh
 ```
 
-To build the Ratings plugin:
+Alternatively, to compile individual projects:
 ```bash
-cd LetterboxdRatings
-dotnet build -c Release -o ../build
+dotnet build -c Release LetterboxdSync/LetterboxdSync.csproj
+dotnet build -c Release LetterboxdRatings/LetterboxdRatings.csproj
+dotnet build -c Release LetterboxdWatchedSync/LetterboxdWatchedSync.csproj
 ```
