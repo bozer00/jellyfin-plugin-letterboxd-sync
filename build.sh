@@ -28,6 +28,11 @@ dotnet build -c Release -o "${BUILD_DIR}/LetterboxdRatings"
 
 # 3. Create ZIP Archives
 echo "Packaging plugins into ZIP archives..."
+
+# Clean up extra files so only the DLL is packaged
+rm -f "${BUILD_DIR}/LetterboxdSync/"*.deps.json "${BUILD_DIR}/LetterboxdSync/"*.pdb
+rm -f "${BUILD_DIR}/LetterboxdRatings/"*.deps.json "${BUILD_DIR}/LetterboxdRatings/"*.pdb
+
 cd "${BUILD_DIR}"
 
 # Check if zip command is available, fallback to python if not

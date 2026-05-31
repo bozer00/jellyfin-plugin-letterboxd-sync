@@ -8,6 +8,14 @@
     "overview": "A scheduled background task plugin that scrapes your public Letterboxd watchlist and updates a Jellyfin playlist with matched movies by title and production year.",
     "versions": [
       {
+        "version": "2.0.2.0",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://raw.githubusercontent.com/bozer00/jellyfin-plugin-letterboxd-sync/main/build/LetterboxdSync.zip",
+        "checksum": "9ff257ac06b01bb15e06ce4a0b3773ac",
+        "changelog": "Repackaged to exclude .deps.json and .pdb files to resolve assembly loading issues in Jellyfin.",
+        "timestamp": "2026-05-31 08:50:00"
+      },
+      {
         "version": "2.0.1.0",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://raw.githubusercontent.com/bozer00/jellyfin-plugin-letterboxd-sync/main/build/LetterboxdSync.zip",
@@ -41,6 +49,14 @@
     "owner": "AndyWirus",
     "overview": "A metadata provider plugin that scrapes average ratings from Letterboxd for film items in your library using TMDb/IMDb IDs, featuring local caching and request serialization.",
     "versions": [
+      {
+        "version": "1.0.2.0",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://raw.githubusercontent.com/bozer00/jellyfin-plugin-letterboxd-sync/main/build/LetterboxdRatings.zip",
+        "checksum": "7f424ae185a7f94d853400f627366d20",
+        "changelog": "Repackaged to exclude .deps.json and .pdb files to resolve assembly loading issues in Jellyfin.",
+        "timestamp": "2026-05-31 08:50:00"
+      },
       {
         "version": "1.0.1.0",
         "targetAbi": "10.11.0.0",
