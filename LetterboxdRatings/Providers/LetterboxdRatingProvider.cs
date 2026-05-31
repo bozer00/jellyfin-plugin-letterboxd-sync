@@ -136,7 +136,7 @@ namespace LetterboxdRatings.Providers
             return ItemUpdateType.None;
         }
 
-        private float? ParseRatingFromHtml(string html)
+        internal float? ParseRatingFromHtml(string html)
         {
             // 1. Try twitter:data2 meta tag
             var match = Regex.Match(html, @"<meta[^>]*?name=""twitter:data2""[^>]*?content=""([0-9.]+)\s+out\s+of\s+5""[^>]*?>", RegexOptions.IgnoreCase);
@@ -159,7 +159,7 @@ namespace LetterboxdRatings.Providers
             return null;
         }
 
-        private void ApplyRating(Movie movie, float letterboxdRating)
+        internal void ApplyRating(Movie movie, float letterboxdRating)
         {
             if (letterboxdRating < 0) return; // Cached negative result, do not apply
 

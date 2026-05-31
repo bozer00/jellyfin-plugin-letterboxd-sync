@@ -305,7 +305,7 @@ namespace LetterboxdSync.ScheduledTasks
             return films;
         }
 
-        private List<LetterboxdFilm> ParseWatchlistHtml(string html)
+        internal List<LetterboxdFilm> ParseWatchlistHtml(string html)
         {
             var list = new List<LetterboxdFilm>();
 
@@ -377,7 +377,7 @@ namespace LetterboxdSync.ScheduledTasks
             return list;
         }
 
-        private BaseItem? FindMovieInLibrary(string title, int? year, string tmdbId, string imdbId, IReadOnlyList<BaseItem> allMovies)
+        internal BaseItem? FindMovieInLibrary(string title, int? year, string tmdbId, string imdbId, IReadOnlyList<BaseItem> allMovies)
         {
             // 1. Try TMDb ID
             if (!string.IsNullOrEmpty(tmdbId))
@@ -489,37 +489,41 @@ namespace LetterboxdSync.ScheduledTasks
                 }
                 response.EnsureSuccessStatusCode();
                 var html = await response.Content.ReadAsStringAsync(cancellationToken);
-
-                string tmdbId = string.Empty;
-                string imdbId = string.Empty;
-
-                var tmdbMatch = Regex.Match(html, @"themoviedb\.org/movie/(\d+)", RegexOptions.IgnoreCase);
-                if (tmdbMatch.Success)
-                {
-                    tmdbId = tmdbMatch.Groups[1].Value;
-                }
-                else
-                {
-                    var tmdbMatch2 = Regex.Match(html, @"data-tmdb-id=""(\d+)""", RegexOptions.IgnoreCase);
-                    if (tmdbMatch2.Success)
-                    {
-                        tmdbId = tmdbMatch2.Groups[1].Value;
-                    }
-                }
-
-                var imdbMatch = Regex.Match(html, @"imdb\.com/title/(tt\d+)", RegexOptions.IgnoreCase);
-                if (imdbMatch.Success)
-                {
-                    imdbId = imdbMatch.Groups[1].Value;
-                }
-
-                return (tmdbId, imdbId);
+                return ParseExternalIdsFromHtml(html);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching external IDs for film slug {Slug}", slug);
                 return (string.Empty, string.Empty);
             }
+        }
+
+        internal static (string TmdbId, string ImdbId) ParseExternalIdsFromHtml(string html)
+        {
+            string tmdbId = string.Empty;
+            string imdbId = string.Empty;
+
+            var tmdbMatch = Regex.Match(html, @"themoviedb\.org/movie/(\d+)", RegexOptions.IgnoreCase);
+            if (tmdbMatch.Success)
+            {
+                tmdbId = tmdbMatch.Groups[1].Value;
+            }
+            else
+            {
+                var tmdbMatch2 = Regex.Match(html, @"data-tmdb-id=""(\d+)""", RegexOptions.IgnoreCase);
+                if (tmdbMatch2.Success)
+                {
+                    tmdbId = tmdbMatch2.Groups[1].Value;
+                }
+            }
+
+            var imdbMatch = Regex.Match(html, @"imdb\.com/title/(tt\d+)", RegexOptions.IgnoreCase);
+            if (imdbMatch.Success)
+            {
+                imdbId = imdbMatch.Groups[1].Value;
+            }
+
+            return (tmdbId, imdbId);
         }
     }
 
