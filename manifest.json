@@ -74,5 +74,23 @@
         "timestamp": "2026-05-31 08:41:00"
       }
     ]
+  },
+  {
+    "category": "Sync",
+    "guid": "c8d62b9a-41e1-4c12-9c47-73d8ab5d63f9",
+    "name": "Letterboxd Watched Sync",
+    "description": "Mark local movies as played based on a public Letterboxd watched list.",
+    "owner": "AndyWirus",
+    "overview": "A scheduled background task plugin that scrapes a user's public Letterboxd watched list and automatically updates their played status for matched movies in Jellyfin.",
+    "versions": [
+      {
+        "version": "1.0.0.0",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://raw.githubusercontent.com/bozer00/jellyfin-plugin-letterboxd-sync/main/build/LetterboxdWatchedSync.zip",
+        "checksum": "d9e409b5d7b3414b4bfb8fadcd842e3c",
+        "changelog": "Initial release of the Letterboxd Watched Sync plugin.",
+        "timestamp": "2026-05-31 16:30:00"
+      }
+    ]
   }
 ]

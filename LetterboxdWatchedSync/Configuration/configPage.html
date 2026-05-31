@@ -1,0 +1,203 @@
+<div data-role="page" class="page type-detail pluginConfigurationPage" id="LetterboxdWatchedSyncConfigPage" data-require="shared/commonbehavior/commonbehavior,emby-button,emby-input,emby-checkbox,emby-select">
+    <div class="content-primary" style="max-width: 800px; margin: 0 auto; padding: 2em 1.5em;">
+        
+        <!-- Config Section -->
+        <div style="background: rgba(32, 32, 32, 0.6); border-radius: 12px; backdrop-filter: blur(10px); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.05); padding: 2em; margin-bottom: 2em;">
+            <form id="LetterboxdWatchedSyncConfigForm">
+                <div class="verticalSection verticalSection-extraborder" style="border: none; padding: 0;">
+                    <div class="sectionHeader" style="margin-bottom: 2em; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 1em;">
+                        <h2 class="sectionTitle" style="font-size: 1.8em; font-weight: 600; color: #00a4dc; text-shadow: 0 2px 4px rgba(0,0,0,0.2); margin: 0;">Letterboxd Watched Sync</h2>
+                        <p style="color: #b0b0b0; font-size: 0.95em; margin-top: 0.5em; margin-bottom: 0;">Mark local movies as played based on a public Letterboxd watched list.</p>
+                    </div>
+
+                    <div class="inputContainer" style="margin-bottom: 1.5em;">
+                        <input is="emby-input" type="text" id="txtUsername" label="Letterboxd Username:" required style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1); border-radius: 6px;" />
+                        <div class="fieldDescription" style="color: #8c8c8c; font-size: 0.85em; margin-top: 0.4em;">
+                            The username of the public Letterboxd account to scrape watched movies from.
+                        </div>
+                    </div>
+
+                    <div class="selectContainer" style="margin-bottom: 1.5em;">
+                        <select is="emby-select" id="selectUser" label="Jellyfin User to Sync Played Status for:" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1); border-radius: 6px; padding: 10px;"></select>
+                        <div class="fieldDescription" style="color: #8c8c8c; font-size: 0.85em; margin-top: 0.4em;">
+                            Select which local Jellyfin user will have their played states updated.
+                        </div>
+                    </div>
+
+                    <div class="selectContainer" style="margin-bottom: 2em;">
+                        <select is="emby-select" id="selectSyncInterval" label="Sync Interval:" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1); border-radius: 6px; padding: 10px;">
+                            <option value="1">Every Hour</option>
+                            <option value="6">Every 6 Hours</option>
+                            <option value="12">Every 12 Hours</option>
+                            <option value="24">Every 24 Hours (Daily)</option>
+                        </select>
+                        <div class="fieldDescription" style="color: #8c8c8c; font-size: 0.85em; margin-top: 0.4em;">
+                            How often the background synchronization task should run.
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 2.5em; display: flex; gap: 1em; align-items: center; flex-wrap: wrap;">
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button" style="background: #00a4dc; color: #fff; border-radius: 8px; font-weight: 600; padding: 0.7em 2em; transition: all 0.2s ease-in-out; border: none; box-shadow: 0 4px 14px rgba(0, 164, 220, 0.4);">
+                            <span>Save Settings</span>
+                        </button>
+                        <button is="emby-button" type="button" id="btnSyncNow" class="raised block emby-button" style="background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; font-weight: 600; padding: 0.7em 2em; transition: all 0.2s ease-in-out;">
+                            <span>Sync Now</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Dashboard Section -->
+        <div id="syncSummaryPanel" style="display: none; background: rgba(32, 32, 32, 0.6); border-radius: 12px; backdrop-filter: blur(10px); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.05); padding: 2em;">
+            <div class="sectionHeader" style="margin-bottom: 1.5em; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 0.8em; display: flex; justify-content: space-between; align-items: center;">
+                <h3 class="sectionTitle" style="font-size: 1.4em; font-weight: 600; color: #fff; margin: 0;">Last Sync Match Summary</h3>
+                <span id="syncTime" style="color: #8c8c8c; font-size: 0.85em;"></span>
+            </div>
+
+            <!-- Stats grid -->
+            <div style="display: flex; gap: 1.5em; margin-bottom: 2em; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 140px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.03); border-radius: 8px; padding: 1.2em; text-align: center;">
+                    <div style="font-size: 0.85em; color: #b0b0b0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.4em;">Watched</div>
+                    <div id="statTotal" style="font-size: 2.2em; font-weight: 700; color: #00a4dc;">0</div>
+                </div>
+                <div style="flex: 1; min-width: 140px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.03); border-radius: 8px; padding: 1.2em; text-align: center;">
+                    <div style="font-size: 0.85em; color: #b0b0b0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.4em;">Matched</div>
+                    <div id="statMatched" style="font-size: 2.2em; font-weight: 700; color: #10b981;">0</div>
+                </div>
+                <div style="flex: 1; min-width: 140px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.03); border-radius: 8px; padding: 1.2em; text-align: center;">
+                    <div style="font-size: 0.85em; color: #b0b0b0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.4em;">Newly Marked</div>
+                    <div id="statMarked" style="font-size: 2.2em; font-weight: 700; color: #f59e0b;">0</div>
+                </div>
+            </div>
+
+            <!-- Unmatched films table -->
+            <div id="unmatchedSection" style="display: none;">
+                <h4 style="font-size: 1.1em; color: #fff; margin-bottom: 1em; font-weight: 600;">Unmatched Watched Films (<span id="unmatchedCount">0</span>)</h4>
+                <div style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9em;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.02);">
+                                <th style="padding: 10px 15px; color: #b0b0b0; font-weight: 600;">Title</th>
+                                <th style="padding: 10px 15px; color: #b0b0b0; font-weight: 600;">Year</th>
+                                <th style="padding: 10px 15px; color: #b0b0b0; font-weight: 600; text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="unmatchedTableBody" style="color: #d8d8d8;"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="text/javascript">
+        var LetterboxdWatchedSyncUniqueId = "c8d62b9a-41e1-4c12-9c47-73d8ab5d63f9";
+
+        function loadSelectUsers(page, selectedUserId) {
+            ApiClient.getUsers().then(function (users) {
+                var select = page.querySelector('#selectUser');
+                select.innerHTML = users.map(function (user) {
+                    var selected = user.Id === selectedUserId ? ' selected' : '';
+                    return '<option value="' + user.Id + '"' + selected + '>' + user.Name + '</option>';
+                }).join('');
+            });
+        }
+
+        document.querySelector('#LetterboxdWatchedSyncConfigPage').addEventListener('pageshow', function () {
+            var page = this;
+            Dashboard.showLoadingMsg();
+
+            ApiClient.getPluginConfiguration(LetterboxdWatchedSyncUniqueId).then(function (config) {
+                page.querySelector('#txtUsername').value = config.LetterboxdUsername || '';
+                page.querySelector('#selectSyncInterval').value = config.SyncIntervalHours || 24;
+                
+                loadSelectUsers(page, config.JellyfinUserId);
+                
+                // Show dashboard panel if sync has run
+                if (config.LastSyncTime) {
+                    page.querySelector('#syncSummaryPanel').style.display = 'block';
+                    page.querySelector('#syncTime').innerText = 'Last Sync: ' + config.LastSyncTime;
+                    page.querySelector('#statTotal').innerText = config.LastSyncTotalCount;
+                    page.querySelector('#statMatched').innerText = config.LastSyncMatchedCount;
+                    page.querySelector('#statMarked').innerText = config.LastSyncMarkedCount;
+
+                    var unmatched = JSON.parse(config.LastSyncUnmatchedFilmsJson || '[]');
+                    if (unmatched.length > 0) {
+                        page.querySelector('#unmatchedSection').style.display = 'block';
+                        page.querySelector('#unmatchedCount').innerText = unmatched.length;
+                        
+                        var tbody = page.querySelector('#unmatchedTableBody');
+                        tbody.innerHTML = unmatched.map(function (film) {
+                            var letterboxdUrl = 'https://letterboxd.com/film/' + film.Slug + '/';
+                            return '<tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">' +
+                                '<td style="padding: 10px 15px;">' + film.Title + '</td>' +
+                                '<td style="padding: 10px 15px;">' + (film.Year || 'N/A') + '</td>' +
+                                '<td style="padding: 10px 15px; text-align: right;">' +
+                                    '<a class="button-link" href="' + letterboxdUrl + '" target="_blank" style="color: #00a4dc; text-decoration: none;">View on Letterboxd</a>' +
+                                '</td>' +
+                            '</tr>';
+                        }).join('');
+                    } else {
+                        page.querySelector('#unmatchedSection').style.display = 'none';
+                    }
+                } else {
+                    page.querySelector('#syncSummaryPanel').style.display = 'none';
+                }
+
+                Dashboard.hideLoadingMsg();
+            }).catch(function (err) {
+                console.error("Error loading Letterboxd Watched Sync configuration:", err);
+                Dashboard.hideLoadingMsg();
+            });
+        });
+
+        document.querySelector('#LetterboxdWatchedSyncConfigForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            var page = document.querySelector('#LetterboxdWatchedSyncConfigPage');
+            Dashboard.showLoadingMsg();
+
+            ApiClient.getPluginConfiguration(LetterboxdWatchedSyncUniqueId).then(function (config) {
+                config.LetterboxdUsername = page.querySelector('#txtUsername').value;
+                config.JellyfinUserId = page.querySelector('#selectUser').value;
+                config.SyncIntervalHours = parseInt(page.querySelector('#selectSyncInterval').value, 10);
+
+                ApiClient.updatePluginConfiguration(LetterboxdWatchedSyncUniqueId, config).then(function (result) {
+                    Dashboard.processPluginConfigurationUpdateResult(result);
+                });
+            });
+
+            return false;
+        });
+
+        document.querySelector('#btnSyncNow').addEventListener('click', function () {
+            var btn = this;
+            Dashboard.showLoadingMsg();
+            ApiClient.getJSON(ApiClient.getUrl('ScheduledTasks')).then(function (tasks) {
+                var task = tasks.find(function (t) { return t.Key === 'LetterboxdWatchedSyncTask'; });
+                if (task) {
+                    ApiClient.post(ApiClient.getUrl('ScheduledTasks/Running/' + task.Id), {}).then(function () {
+                        Dashboard.hideLoadingMsg();
+                        Dashboard.alert({
+                            message: 'Synchronization has been triggered in the background! Please reload this page in a few moments to see updated match statistics.'
+                        });
+                    }).catch(function (err) {
+                        console.error("Failed to start scheduled task:", err);
+                        Dashboard.hideLoadingMsg();
+                        Dashboard.alert({
+                            message: 'Failed to trigger synchronization task: ' + err.message
+                        });
+                    });
+                } else {
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert({
+                        message: 'Could not find the Letterboxd Watched Sync task. Please restart Jellyfin.'
+                    });
+                }
+            }).catch(function (err) {
+                console.error("Failed to retrieve scheduled tasks:", err);
+                Dashboard.hideLoadingMsg();
+            });
+        });
+    </script>
+</div>

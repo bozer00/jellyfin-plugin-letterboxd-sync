@@ -25,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\LetterboxdSync\LetterboxdSync.csproj" />
     <ProjectReference Include="..\LetterboxdRatings\LetterboxdRatings.csproj" />
+    <ProjectReference Include="..\LetterboxdWatchedSync\LetterboxdWatchedSync.csproj" />
   </ItemGroup>
 
 </Project>

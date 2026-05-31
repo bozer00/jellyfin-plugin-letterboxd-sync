@@ -26,12 +26,18 @@ echo "Building Letterboxd Ratings..."
 cd "${REPO_ROOT}/LetterboxdRatings"
 dotnet build -c Release -o "${BUILD_DIR}/LetterboxdRatings"
 
-# 3. Create ZIP Archives
+# 3. Build Letterboxd Watched Sync
+echo "Building Letterboxd Watched Sync..."
+cd "${REPO_ROOT}/LetterboxdWatchedSync"
+dotnet build -c Release -o "${BUILD_DIR}/LetterboxdWatchedSync"
+
+# 4. Create ZIP Archives
 echo "Packaging plugins into ZIP archives..."
 
 # Clean up extra files so only the DLL is packaged
 rm -f "${BUILD_DIR}/LetterboxdSync/"*.deps.json "${BUILD_DIR}/LetterboxdSync/"*.pdb
 rm -f "${BUILD_DIR}/LetterboxdRatings/"*.deps.json "${BUILD_DIR}/LetterboxdRatings/"*.pdb
+rm -f "${BUILD_DIR}/LetterboxdWatchedSync/"*.deps.json "${BUILD_DIR}/LetterboxdWatchedSync/"*.pdb
 
 cd "${BUILD_DIR}"
 
@@ -44,11 +50,16 @@ if command -v zip >/dev/null 2>&1; then
     # Package LetterboxdRatings
     cd "${BUILD_DIR}/LetterboxdRatings"
     zip -r "${BUILD_DIR}/LetterboxdRatings.zip" .
+
+    # Package LetterboxdWatchedSync
+    cd "${BUILD_DIR}/LetterboxdWatchedSync"
+    zip -r "${BUILD_DIR}/LetterboxdWatchedSync.zip" .
 else
     echo "Warning: 'zip' command not found. Falling back to python3 to create zip archives..."
     if command -v python3 >/dev/null 2>&1; then
         python3 -c "import shutil; shutil.make_archive('${BUILD_DIR}/LetterboxdSync', 'zip', '${BUILD_DIR}/LetterboxdSync')"
         python3 -c "import shutil; shutil.make_archive('${BUILD_DIR}/LetterboxdRatings', 'zip', '${BUILD_DIR}/LetterboxdRatings')"
+        python3 -c "import shutil; shutil.make_archive('${BUILD_DIR}/LetterboxdWatchedSync', 'zip', '${BUILD_DIR}/LetterboxdWatchedSync')"
     else
         echo "Error: Neither 'zip' nor 'python3' is available. Skipping ZIP archive generation."
     fi

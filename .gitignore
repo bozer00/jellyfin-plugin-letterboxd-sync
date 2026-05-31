@@ -3,6 +3,7 @@ bin/
 obj/
 build/LetterboxdSync/
 build/LetterboxdRatings/
+build/LetterboxdWatchedSync/
 
 # Visual Studio cache and settings
 .vs/
