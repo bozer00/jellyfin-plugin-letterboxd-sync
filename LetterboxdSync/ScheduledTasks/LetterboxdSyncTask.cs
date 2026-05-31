@@ -198,47 +198,61 @@ namespace LetterboxdSync.ScheduledTasks
             var playlists = _libraryManager.GetItemList(playlistQuery);
             var playlist = playlists.FirstOrDefault(p => string.Equals(p.Name, playlistName, StringComparison.OrdinalIgnoreCase));
 
-            if (string.Equals(config.SyncMode, "Sync", StringComparison.OrdinalIgnoreCase))
-            {
-                if (playlist != null)
-                {
-                    _logger.LogInformation("Deleting existing playlist '{PlaylistName}' for full sync.", playlistName);
-                    _libraryManager.DeleteItem(playlist, new DeleteOptions { DeleteFileLocation = false });
-                    playlist = null;
-                }
-            }
 
             if (playlist == null)
             {
                 _logger.LogInformation("Creating new playlist '{PlaylistName}' with {Count} items.", playlistName, matchedMovieIds.Count);
-                var createResult = _playlistManager.CreatePlaylist(new PlaylistCreationRequest
+                var createResult = await _playlistManager.CreatePlaylist(new PlaylistCreationRequest
                 {
                     Name = playlistName,
                     UserId = targetUser.Id,
                     ItemIdList = matchedMovieIds.ToArray()
-                });
+                }).ConfigureAwait(false);
                 _logger.LogInformation("Playlist created successfully. ID: {Id}", createResult.Id);
             }
             else
             {
-                _logger.LogInformation("Updating existing playlist '{PlaylistName}' (Append mode).", playlistName);
-                
-                var currentItems = _libraryManager.GetItemList(new InternalItemsQuery(targetUser)
+                if (string.Equals(config.SyncMode, "Sync", StringComparison.OrdinalIgnoreCase))
                 {
-                    ParentId = playlist.Id,
-                    Recursive = true
-                });
-                var currentItemIds = currentItems.Select(i => i.Id).ToHashSet();
-
-                var itemsToAdd = matchedMovieIds.Where(id => !currentItemIds.Contains(id)).ToArray();
-                if (itemsToAdd.Length > 0)
-                {
-                    _logger.LogInformation("Adding {Count} new items to playlist.", itemsToAdd.Length);
-                    await _playlistManager.AddItemToPlaylistAsync(playlist.Id, itemsToAdd, targetUser.Id);
+                    _logger.LogInformation("Updating existing playlist '{PlaylistName}' (Full Sync mode).", playlistName);
+                    
+                    var currentItems = _libraryManager.GetItemList(new InternalItemsQuery(targetUser)
+                    {
+                        ParentId = playlist.Id,
+                        Recursive = true
+                    });
+                    
+                    var entryIdsToRemove = currentItems.Select(i => i.Id.ToString("N", System.Globalization.CultureInfo.InvariantCulture)).ToList();
+                    if (entryIdsToRemove.Count > 0)
+                    {
+                        _logger.LogInformation("Clearing {Count} existing items from playlist.", entryIdsToRemove.Count);
+                        await _playlistManager.RemoveItemFromPlaylistAsync(playlist.Id.ToString(), entryIdsToRemove).ConfigureAwait(false);
+                    }
+                    
+                    _logger.LogInformation("Adding {Count} items to playlist for sync.", matchedMovieIds.Count);
+                    await _playlistManager.AddItemToPlaylistAsync(playlist.Id, matchedMovieIds.ToArray(), targetUser.Id).ConfigureAwait(false);
                 }
                 else
                 {
-                    _logger.LogInformation("No new items to add to the playlist.");
+                    _logger.LogInformation("Updating existing playlist '{PlaylistName}' (Append mode).", playlistName);
+                    
+                    var currentItems = _libraryManager.GetItemList(new InternalItemsQuery(targetUser)
+                    {
+                        ParentId = playlist.Id,
+                        Recursive = true
+                    });
+                    var currentItemIds = currentItems.Select(i => i.Id).ToHashSet();
+
+                    var itemsToAdd = matchedMovieIds.Where(id => !currentItemIds.Contains(id)).ToArray();
+                    if (itemsToAdd.Length > 0)
+                    {
+                        _logger.LogInformation("Adding {Count} new items to playlist.", itemsToAdd.Length);
+                        await _playlistManager.AddItemToPlaylistAsync(playlist.Id, itemsToAdd, targetUser.Id).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("No new items to add to the playlist.");
+                    }
                 }
             }
 
