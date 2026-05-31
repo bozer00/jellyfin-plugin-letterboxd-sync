@@ -1,0 +1,36 @@
+name: .NET Build & Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+        dotnet-quality: 'preview'
+
+    - name: Restore Dependencies
+      run: |
+        dotnet restore LetterboxdSync/LetterboxdSync.csproj
+        dotnet restore LetterboxdRatings/LetterboxdRatings.csproj
+
+    - name: Build
+      run: |
+        dotnet build LetterboxdSync/LetterboxdSync.csproj --configuration Release --no-restore
+        dotnet build LetterboxdRatings/LetterboxdRatings.csproj --configuration Release --no-restore
+
+    - name: Test
+      run: |
+        # Currently no unit test projects are configured, but this is prepared for future test projects
+        echo "No tests configured yet."
