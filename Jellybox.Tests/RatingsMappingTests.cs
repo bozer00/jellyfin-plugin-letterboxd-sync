@@ -28,10 +28,10 @@ namespace Jellybox.Tests
             prop?.SetValue(null, null);
         }
 
-        private void SetPluginInstance(string ratingMapping)
+        private void SetPluginInstance(string ratingMapping, string overwritePolicy = "Overwrite")
         {
             var plugin = (Plugin)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Plugin));
-            var config = new PluginConfiguration { RatingMapping = ratingMapping };
+            var config = new PluginConfiguration { RatingMapping = ratingMapping, RatingOverwritePolicy = overwritePolicy };
             
             var baseType = typeof(BasePlugin<PluginConfiguration>);
             var configProp = baseType.GetProperty("Configuration", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
@@ -129,6 +129,32 @@ namespace Jellybox.Tests
             // Values should remain unchanged
             Assert.Equal(5.0f, movie.CommunityRating);
             Assert.Equal(50.0f, movie.CriticRating);
+        }
+
+        [Fact]
+        public void ApplyRating_OnlyFillEmpty_PreservesExistingRating()
+        {
+            SetPluginInstance("Both", "OnlyFillEmpty");
+            var provider = new LetterboxdRatingProvider(null!);
+            var movie = new Movie { CommunityRating = 6.0f };
+
+            provider.ApplyRating(movie, 4.0f);
+
+            Assert.Equal(6.0f, movie.CommunityRating);
+            Assert.Equal(80.0f, movie.CriticRating);
+        }
+
+        [Fact]
+        public void ApplyRating_Disabled_DoesNotModifyMovie()
+        {
+            SetPluginInstance("Both", "Disabled");
+            var provider = new LetterboxdRatingProvider(null!);
+            var movie = new Movie { CommunityRating = 6.0f, CriticRating = 60.0f };
+
+            provider.ApplyRating(movie, 4.0f);
+
+            Assert.Equal(6.0f, movie.CommunityRating);
+            Assert.Equal(60.0f, movie.CriticRating);
         }
     }
 }

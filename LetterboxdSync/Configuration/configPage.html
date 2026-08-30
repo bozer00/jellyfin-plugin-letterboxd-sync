@@ -13,6 +13,10 @@
                     <div class="fieldDescription" style="color: #8c8c8c; font-size: 0.85em; margin-top: 0.4em;">The public Letterboxd username whose watchlist you want to sync.</div>
                 </div>
 
+                <div class="fieldDescription" style="background: rgba(0, 164, 220, 0.08); border: 1px solid rgba(0, 164, 220, 0.2); border-radius: 6px; color: #b0b0b0; font-size: 0.85em; line-height: 1.5; margin: -0.6em 0 1.8em; padding: 0.9em 1em;">
+                    <strong style="color: #d8d8d8;">Privacy:</strong> This plugin reads only public Letterboxd pages. It sends the configured public username and film-page requests to Letterboxd; it never asks for a Letterboxd password or token. Sync statistics and matching data are stored locally with this Jellyfin plugin and may be visible to Jellyfin server administrators.
+                </div>
+
                 <div class="selectContainer" style="margin-bottom: 1.8em;">
                     <select is="emby-select" id="selectUser" label="Sync to User:" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1); border-radius: 6px; padding: 10px;"></select>
                     <div class="fieldDescription" style="color: #8c8c8c; font-size: 0.85em; margin-top: 0.4em;">The Jellyfin user for whom the playlist will be created and managed.</div>
@@ -102,7 +106,7 @@
 
                 // Populate users dropdown
                 var selectUser = page.querySelector('#selectUser');
-                selectUser.innerHTML = '';
+                selectUser.replaceChildren();
                 users.forEach(function (user) {
                     var option = document.createElement('option');
                     option.value = user.Id;
@@ -127,7 +131,7 @@
                     page.querySelector('#summaryMatchedCount').textContent = config.LastSyncMatchedCount || 0;
 
                     var unmatchedList = page.querySelector('#unmatchedList');
-                    unmatchedList.innerHTML = '';
+                    unmatchedList.replaceChildren();
 
                     var unmatched = [];
                     try {
@@ -138,7 +142,7 @@
                         console.error("Failed to parse unmatched films:", e);
                     }
 
-                    if (unmatched && unmatched.length > 0) {
+                    if (Array.isArray(unmatched) && unmatched.length > 0) {
                         page.querySelector('#unmatchedSection').style.display = 'block';
                         page.querySelector('#unmatchedCountBadge').textContent = unmatched.length;
                         unmatched.forEach(function (film) {
@@ -155,11 +159,14 @@
                             var titleSpan = document.createElement('span');
                             titleSpan.style.color = '#e0e0e0';
                             titleSpan.style.fontWeight = '500';
-                            titleSpan.textContent = film.Title + (film.Year ? ' (' + film.Year + ')' : '');
+                            var title = typeof film.Title === 'string' ? film.Title : '';
+                            var year = film.Year ? ' (' + film.Year + ')' : '';
+                            titleSpan.textContent = title + year;
 
                             var link = document.createElement('a');
-                            link.href = 'https://letterboxd.com/film/' + film.Slug + '/';
+                            link.href = 'https://letterboxd.com/film/' + encodeURIComponent(String(film.Slug || '')) + '/';
                             link.target = '_blank';
+                            link.rel = 'noopener noreferrer';
                             link.textContent = 'View on Letterboxd ↗';
                             link.style.color = '#00a4dc';
                             link.style.textDecoration = 'none';

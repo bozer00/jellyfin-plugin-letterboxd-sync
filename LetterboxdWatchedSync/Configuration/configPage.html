@@ -17,6 +17,10 @@
                         </div>
                     </div>
 
+                    <div class="fieldDescription" style="background: rgba(0, 164, 220, 0.08); border: 1px solid rgba(0, 164, 220, 0.2); border-radius: 6px; color: #b0b0b0; font-size: 0.85em; line-height: 1.5; margin: -0.3em 0 1.5em; padding: 0.9em 1em;">
+                        <strong style="color: #d8d8d8;">Privacy:</strong> This plugin reads only public Letterboxd pages. It sends the configured public username and film-page requests to Letterboxd; it never asks for a Letterboxd password or token. Sync statistics and matching data are stored locally with this Jellyfin plugin and may be visible to Jellyfin server administrators. Matched movies are marked played only for the Jellyfin user selected below.
+                    </div>
+
                     <div class="selectContainer" style="margin-bottom: 1.5em;">
                         <select is="emby-select" id="selectUser" label="Jellyfin User to Sync Played Status for:" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1); border-radius: 6px; padding: 10px;"></select>
                         <div class="fieldDescription" style="color: #8c8c8c; font-size: 0.85em; margin-top: 0.4em;">
@@ -97,10 +101,14 @@
         function loadSelectUsers(page, selectedUserId) {
             ApiClient.getUsers().then(function (users) {
                 var select = page.querySelector('#selectUser');
-                select.innerHTML = users.map(function (user) {
-                    var selected = user.Id === selectedUserId ? ' selected' : '';
-                    return '<option value="' + user.Id + '"' + selected + '>' + user.Name + '</option>';
-                }).join('');
+                select.replaceChildren();
+                users.forEach(function (user) {
+                    var option = document.createElement('option');
+                    option.value = String(user.Id || '');
+                    option.textContent = user.Name || '';
+                    option.selected = user.Id === selectedUserId;
+                    select.appendChild(option);
+                });
             });
         }
 
@@ -122,22 +130,50 @@
                     page.querySelector('#statMatched').innerText = config.LastSyncMatchedCount;
                     page.querySelector('#statMarked').innerText = config.LastSyncMarkedCount;
 
-                    var unmatched = JSON.parse(config.LastSyncUnmatchedFilmsJson || '[]');
-                    if (unmatched.length > 0) {
+                    var unmatched = [];
+                    try {
+                        unmatched = JSON.parse(config.LastSyncUnmatchedFilmsJson || '[]');
+                    } catch (e) {
+                        console.error("Failed to parse unmatched watched films:", e);
+                    }
+
+                    if (Array.isArray(unmatched) && unmatched.length > 0) {
                         page.querySelector('#unmatchedSection').style.display = 'block';
-                        page.querySelector('#unmatchedCount').innerText = unmatched.length;
+                        page.querySelector('#unmatchedCount').textContent = unmatched.length;
                         
                         var tbody = page.querySelector('#unmatchedTableBody');
-                        tbody.innerHTML = unmatched.map(function (film) {
-                            var letterboxdUrl = 'https://letterboxd.com/film/' + film.Slug + '/';
-                            return '<tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">' +
-                                '<td style="padding: 10px 15px;">' + film.Title + '</td>' +
-                                '<td style="padding: 10px 15px;">' + (film.Year || 'N/A') + '</td>' +
-                                '<td style="padding: 10px 15px; text-align: right;">' +
-                                    '<a class="button-link" href="' + letterboxdUrl + '" target="_blank" style="color: #00a4dc; text-decoration: none;">View on Letterboxd</a>' +
-                                '</td>' +
-                            '</tr>';
-                        }).join('');
+                        tbody.replaceChildren();
+                        unmatched.forEach(function (film) {
+                            var row = document.createElement('tr');
+                            row.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
+
+                            var titleCell = document.createElement('td');
+                            titleCell.style.padding = '10px 15px';
+                            titleCell.textContent = typeof film.Title === 'string' ? film.Title : '';
+
+                            var yearCell = document.createElement('td');
+                            yearCell.style.padding = '10px 15px';
+                            yearCell.textContent = film.Year ? String(film.Year) : 'N/A';
+
+                            var actionCell = document.createElement('td');
+                            actionCell.style.padding = '10px 15px';
+                            actionCell.style.textAlign = 'right';
+
+                            var link = document.createElement('a');
+                            link.className = 'button-link';
+                            link.href = 'https://letterboxd.com/film/' + encodeURIComponent(String(film.Slug || '')) + '/';
+                            link.target = '_blank';
+                            link.rel = 'noopener noreferrer';
+                            link.style.color = '#00a4dc';
+                            link.style.textDecoration = 'none';
+                            link.textContent = 'View on Letterboxd';
+
+                            actionCell.appendChild(link);
+                            row.appendChild(titleCell);
+                            row.appendChild(yearCell);
+                            row.appendChild(actionCell);
+                            tbody.appendChild(row);
+                        });
                     } else {
                         page.querySelector('#unmatchedSection').style.display = 'none';
                     }

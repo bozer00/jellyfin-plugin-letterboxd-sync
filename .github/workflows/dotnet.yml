@@ -1,36 +1,45 @@
-name: .NET Build & Test
+name: Build and test
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
-  build:
+  build-test:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-    - name: Setup .NET SDK
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '10.0.x'
-        dotnet-quality: 'preview'
+      - name: Set up the pinned .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
 
-    - name: Restore Dependencies
-      run: |
-        dotnet restore LetterboxdSync/LetterboxdSync.csproj
-        dotnet restore LetterboxdRatings/LetterboxdRatings.csproj
+      - name: Restore all plugin and test dependencies
+        run: dotnet restore Jellybox.sln
 
-    - name: Build
-      run: |
-        dotnet build LetterboxdSync/LetterboxdSync.csproj --configuration Release --no-restore
-        dotnet build LetterboxdRatings/LetterboxdRatings.csproj --configuration Release --no-restore
+      - name: Build all plugins and tests
+        run: dotnet build Jellybox.sln --configuration Release --no-restore
 
-    - name: Test
-      run: |
-        # Currently no unit test projects are configured, but this is prepared for future test projects
-        echo "No tests configured yet."
+      - name: Run tests with coverage collection
+        run: >-
+          dotnet test Jellybox.Tests/Jellybox.Tests.csproj
+          --configuration Release
+          --no-build
+          --collect:"XPlat Code Coverage"
+          --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
+          if-no-files-found: ignore

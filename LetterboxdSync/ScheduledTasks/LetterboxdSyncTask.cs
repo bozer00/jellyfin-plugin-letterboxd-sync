@@ -25,6 +25,7 @@ namespace LetterboxdSync.ScheduledTasks
         private readonly IPlaylistManager _playlistManager;
         private readonly IUserManager _userManager;
         private readonly HttpClient _httpClient;
+        private static readonly SemaphoreSlim _runLock = new SemaphoreSlim(1, 1);
 
         public LetterboxdSyncTask(
             ILogger<LetterboxdSyncTask> logger,
@@ -50,17 +51,39 @@ namespace LetterboxdSync.ScheduledTasks
 
         public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
         {
+            var configuredInterval = Plugin.Instance?.Configuration.SyncIntervalHours ?? 12;
+            var intervalHours = Plugin.NormalizeSyncIntervalHours(configuredInterval);
+
             return new[]
             {
                 new TaskTriggerInfo
                 {
                     Type = TaskTriggerInfoType.IntervalTrigger,
-                    IntervalTicks = TimeSpan.FromHours(12).Ticks
+                    IntervalTicks = TimeSpan.FromHours(intervalHours).Ticks
                 }
             };
         }
 
         public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
+        {
+            if (!await _runLock.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+            {
+                _logger.LogWarning("A Letterboxd watchlist sync is already running. Skipping overlapping run.");
+                progress.Report(100);
+                return;
+            }
+
+            try
+            {
+                await ExecuteCoreAsync(progress, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                _runLock.Release();
+            }
+        }
+
+        private async Task ExecuteCoreAsync(IProgress<double> progress, CancellationToken cancellationToken)
         {
             var config = Plugin.Instance?.Configuration;
             if (config == null || string.IsNullOrWhiteSpace(config.LetterboxdUsername))
@@ -73,9 +96,33 @@ namespace LetterboxdSync.ScheduledTasks
             var username = config.LetterboxdUsername.Trim();
             var playlistName = string.IsNullOrWhiteSpace(config.PlaylistName) ? "Letterboxd Watchlist" : config.PlaylistName.Trim();
 
-            _logger.LogInformation("Starting Letterboxd watchlist sync for user {Username} to playlist '{PlaylistName}'", username, playlistName);
+            if (string.IsNullOrWhiteSpace(config.JellyfinUserId) || !Guid.TryParse(config.JellyfinUserId, out var configUserId))
+            {
+                _logger.LogWarning("A valid Jellyfin user must be configured before watchlist sync can run.");
+                progress.Report(100);
+                return;
+            }
 
-            var films = await FetchWatchlistAsync(username, cancellationToken);
+            var targetUser = _userManager.GetUserById(configUserId);
+            if (targetUser == null)
+            {
+                _logger.LogWarning("Configured Jellyfin user {UserId} was not found. Skipping sync run.", config.JellyfinUserId);
+                progress.Report(100);
+                return;
+            }
+
+            _logger.LogInformation("Starting Letterboxd watchlist sync for user {Username} to playlist '{PlaylistName}'", username, playlistName);
+            _logger.LogInformation("Syncing to Jellyfin user: {Username}", targetUser.Username);
+
+            var fetchResult = await FetchWatchlistAsync(username, cancellationToken).ConfigureAwait(false);
+            if (!fetchResult.Completed)
+            {
+                _logger.LogError("Letterboxd watchlist retrieval did not complete. Playlist will not be changed.");
+                progress.Report(100);
+                return;
+            }
+
+            var films = fetchResult.Films;
             if (films.Count == 0)
             {
                 _logger.LogInformation("No films found in Letterboxd watchlist for {Username} (or watchlist is private/unavailable).", username);
@@ -84,26 +131,6 @@ namespace LetterboxdSync.ScheduledTasks
             }
 
             _logger.LogInformation("Found {Count} films in Letterboxd watchlist.", films.Count);
-
-            User? targetUser = null;
-            if (!string.IsNullOrEmpty(config.JellyfinUserId) && Guid.TryParse(config.JellyfinUserId, out var configUserId))
-            {
-                targetUser = _userManager.GetUserById(configUserId);
-            }
-
-            if (targetUser == null)
-            {
-                targetUser = _userManager.Users.FirstOrDefault();
-            }
-
-            if (targetUser == null)
-            {
-                _logger.LogError("No Jellyfin user found. Cannot create/update playlist.");
-                progress.Report(100);
-                return;
-            }
-
-            _logger.LogInformation("Syncing to Jellyfin user: {Username}", targetUser.Username);
 
             // Fetch all movies in the library once to optimize matching performance
             var allMoviesQuery = new InternalItemsQuery(targetUser)
@@ -260,7 +287,7 @@ namespace LetterboxdSync.ScheduledTasks
             _logger.LogInformation("Letterboxd watchlist sync completed.");
         }
 
-        private async Task<List<LetterboxdFilm>> FetchWatchlistAsync(string username, CancellationToken cancellationToken)
+        private async Task<LetterboxdFetchResult> FetchWatchlistAsync(string username, CancellationToken cancellationToken)
         {
             var films = new List<LetterboxdFilm>();
             int page = 1;
@@ -277,7 +304,7 @@ namespace LetterboxdSync.ScheduledTasks
                     var response = await _httpClient.GetAsync(url, cancellationToken);
                     if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                     {
-                        break;
+                        return LetterboxdFetchResult.Complete(films);
                     }
                     response.EnsureSuccessStatusCode();
 
@@ -285,24 +312,67 @@ namespace LetterboxdSync.ScheduledTasks
                     var pageFilms = ParseWatchlistHtml(html);
                     if (pageFilms.Count == 0)
                     {
-                        break;
+                        _logger.LogWarning("Letterboxd watchlist page {Page} contained no films; treating retrieval as incomplete to protect the playlist.", page);
+                        return LetterboxdFetchResult.Incomplete(films);
                     }
 
                     films.AddRange(pageFilms);
 
-                    hasMore = html.Contains("class=\"next\"");
+                    hasMore = HasNextPage(html);
+                    if (!hasMore)
+                    {
+                        if (await ConfirmNoNextPageAsync(username, page + 1, cancellationToken).ConfigureAwait(false))
+                        {
+                            return LetterboxdFetchResult.Complete(films);
+                        }
+
+                        _logger.LogWarning("Could not positively confirm that watchlist page {Page} is the final page. Playlist will not be changed.", page);
+                        return LetterboxdFetchResult.Incomplete(films);
+                    }
+
                     page++;
 
                     await Task.Delay(1000, cancellationToken);
                 }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error fetching Letterboxd watchlist page {Page} for {Username}", page, username);
-                    break;
+                    return LetterboxdFetchResult.Incomplete(films);
                 }
             }
 
-            return films;
+            return LetterboxdFetchResult.Complete(films);
+        }
+
+        private async Task<bool> ConfirmNoNextPageAsync(string username, int page, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var response = await _httpClient.GetAsync($"https://letterboxd.com/{username}/watchlist/page/{page}/", cancellationToken).ConfigureAwait(false);
+                return response.StatusCode == System.Net.HttpStatusCode.NotFound;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not confirm whether Letterboxd watchlist page {Page} exists.", page);
+                return false;
+            }
+        }
+
+        internal static bool HasNextPage(string html)
+        {
+            return Regex.Matches(html, @"<a\b[^>]*>", RegexOptions.IgnoreCase)
+                .Cast<Match>()
+                .Any(match =>
+                    Regex.IsMatch(match.Value, @"\bclass=""[^""]*\bnext\b[^""]*""", RegexOptions.IgnoreCase)
+                    && Regex.IsMatch(match.Value, @"\bhref=""[^""]+""", RegexOptions.IgnoreCase));
         }
 
         internal List<LetterboxdFilm> ParseWatchlistHtml(string html)
@@ -414,13 +484,13 @@ namespace LetterboxdSync.ScheduledTasks
                 ).ToList();
             }
 
-            if (year.HasValue)
+            if (!year.HasValue)
             {
-                var yearMatch = matches.FirstOrDefault(m => m.ProductionYear == year.Value);
-                if (yearMatch != null) return yearMatch;
+                return null;
             }
 
-            return matches.FirstOrDefault();
+            var yearMatches = matches.Where(m => m.ProductionYear == year.Value).ToList();
+            return yearMatches.Count == 1 ? yearMatches[0] : null;
         }
 
         private string NormalizeTitle(string title)
@@ -454,15 +524,28 @@ namespace LetterboxdSync.ScheduledTasks
         private void SaveCache(Dictionary<string, LetterboxdCacheItem> cache)
         {
             var cacheFile = GetCacheFilePath();
+            var temporaryCacheFile = cacheFile + "." + Guid.NewGuid().ToString("N") + ".tmp";
             try
             {
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 var json = JsonSerializer.Serialize(cache.Values.ToList(), options);
-                File.WriteAllText(cacheFile, json);
+                File.WriteAllText(temporaryCacheFile, json);
+                File.Move(temporaryCacheFile, cacheFile, true);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to save Letterboxd cache.");
+                try
+                {
+                    if (File.Exists(temporaryCacheFile))
+                    {
+                        File.Delete(temporaryCacheFile);
+                    }
+                }
+                catch (Exception cleanupEx)
+                {
+                    _logger.LogWarning(cleanupEx, "Failed to clean up temporary Letterboxd cache file.");
+                }
             }
         }
 
@@ -551,5 +634,22 @@ namespace LetterboxdSync.ScheduledTasks
         public string Title { get; set; } = string.Empty;
         public int? Year { get; set; }
         public string Slug { get; set; } = string.Empty;
+    }
+
+    internal sealed class LetterboxdFetchResult
+    {
+        private LetterboxdFetchResult(List<LetterboxdFilm> films, bool completed)
+        {
+            Films = films;
+            Completed = completed;
+        }
+
+        public List<LetterboxdFilm> Films { get; }
+
+        public bool Completed { get; }
+
+        public static LetterboxdFetchResult Complete(List<LetterboxdFilm> films) => new LetterboxdFetchResult(films, true);
+
+        public static LetterboxdFetchResult Incomplete(List<LetterboxdFilm> films) => new LetterboxdFetchResult(films, false);
     }
 }

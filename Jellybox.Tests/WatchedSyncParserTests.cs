@@ -153,5 +153,43 @@ namespace Jellybox.Tests
             Assert.NotNull(match);
             Assert.Equal(movie1.Id, match.Id);
         }
+
+        [Fact]
+        public void FindMovieInLibrary_RejectsAmbiguousTitleAndYearFallback()
+        {
+            // Arrange
+            var taskInstance = new LetterboxdWatchedSyncTask(null!, null!, null!, null!);
+            var movie1 = new Movie { Id = Guid.NewGuid(), Name = "The Thing", ProductionYear = 1982 };
+            var movie2 = new Movie { Id = Guid.NewGuid(), Name = "The Thing", ProductionYear = 1982 };
+            var movies = new List<BaseItem> { movie1, movie2 };
+
+            // Act
+            var match = taskInstance.FindMovieInLibrary("The Thing", 1982, "", "", movies);
+
+            // Assert
+            Assert.Null(match);
+        }
+
+        [Fact]
+        public void FindMovieInLibrary_RejectsTitleOnlyFallbackWithoutYear()
+        {
+            // Arrange
+            var taskInstance = new LetterboxdWatchedSyncTask(null!, null!, null!, null!);
+            var movie = new Movie { Id = Guid.NewGuid(), Name = "The Thing", ProductionYear = 1982 };
+            var movies = new List<BaseItem> { movie };
+
+            // Act
+            var match = taskInstance.FindMovieInLibrary("The Thing", null, "", "", movies);
+
+            // Assert
+            Assert.Null(match);
+        }
+
+        [Fact]
+        public void HasNextPage_RequiresNextLinkWithHref()
+        {
+            Assert.True(LetterboxdWatchedSyncTask.HasNextPage("<a href=\"/user/films/page/2/\" class=\"next\">Next</a>"));
+            Assert.False(LetterboxdWatchedSyncTask.HasNextPage("<span class=\"next disabled\">Next</span>"));
+        }
     }
 }

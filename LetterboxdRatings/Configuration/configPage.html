@@ -19,9 +19,23 @@
                     </div>
                 </div>
 
+                <div class="selectContainer" style="margin-bottom: 2em;">
+                    <select is="emby-select" id="selectRatingOverwritePolicy" label="Existing Rating Policy:" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1); border-radius: 6px; padding: 10px;">
+                        <option value="Overwrite">Overwrite existing mapped ratings</option>
+                        <option value="OnlyFillEmpty">Only fill empty mapped ratings</option>
+                        <option value="Disabled">Do not write Letterboxd ratings</option>
+                    </select>
+                    <div class="fieldDescription" style="color: #8c8c8c; font-size: 0.85em; margin-top: 0.4em;">
+                        Choose whether Letterboxd may replace metadata provided by another source. The default preserves the previous overwrite behavior.
+                    </div>
+                </div>
+
                 <div style="margin-top: 2.5em; display: flex; gap: 1em; align-items: center; flex-wrap: wrap;">
                     <button is="emby-button" type="submit" class="raised button-submit block emby-button" style="background: #00a4dc; color: #fff; border-radius: 8px; font-weight: 600; padding: 0.7em 2em; transition: all 0.2s ease-in-out; border: none; box-shadow: 0 4px 14px rgba(0, 164, 220, 0.4);">
                         <span>Save Settings</span>
+                    </button>
+                    <button is="emby-button" type="button" id="clearRatingsCache" class="raised button-cancel emby-button">
+                        <span>Clear Ratings Cache</span>
                     </button>
                 </div>
             </div>
@@ -37,6 +51,7 @@
 
             ApiClient.getPluginConfiguration(LetterboxdRatingsUniqueId).then(function (config) {
                 page.querySelector('#selectRatingMapping').value = config.RatingMapping || 'Community';
+                page.querySelector('#selectRatingOverwritePolicy').value = config.RatingOverwritePolicy || 'Overwrite';
                 Dashboard.hideLoadingMsg();
             }).catch(function (err) {
                 console.error("Error loading Letterboxd Ratings configuration:", err);
@@ -51,6 +66,7 @@
 
             ApiClient.getPluginConfiguration(LetterboxdRatingsUniqueId).then(function (config) {
                 config.RatingMapping = page.querySelector('#selectRatingMapping').value;
+                config.RatingOverwritePolicy = page.querySelector('#selectRatingOverwritePolicy').value;
 
                 ApiClient.updatePluginConfiguration(LetterboxdRatingsUniqueId, config).then(function (result) {
                     Dashboard.processPluginConfigurationUpdateResult(result);
@@ -58,6 +74,19 @@
             });
 
             return false;
+        });
+
+        document.querySelector('#clearRatingsCache').addEventListener('click', function () {
+            Dashboard.showLoadingMsg();
+            ApiClient.getPluginConfiguration(LetterboxdRatingsUniqueId).then(function (config) {
+                config.ClearCacheRequested = true;
+                return ApiClient.updatePluginConfiguration(LetterboxdRatingsUniqueId, config);
+            }).then(function (result) {
+                Dashboard.processPluginConfigurationUpdateResult(result);
+            }).catch(function (err) {
+                console.error("Error clearing Letterboxd ratings cache:", err);
+                Dashboard.hideLoadingMsg();
+            });
         });
     </script>
 </div>
