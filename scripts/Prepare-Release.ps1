@@ -58,6 +58,28 @@ $artifactByPlugin = @{
     'Letterboxd Ratings' = 'LetterboxdRatings.zip'
     'Letterboxd Watched Sync' = 'LetterboxdWatchedSync.zip'
 }
+$projectByPlugin = @{
+    'Letterboxd Watchlist Sync' = Join-Path $PSScriptRoot '..' 'LetterboxdSync' 'LetterboxdSync.csproj'
+    'Letterboxd Ratings' = Join-Path $PSScriptRoot '..' 'LetterboxdRatings' 'LetterboxdRatings.csproj'
+    'Letterboxd Watched Sync' = Join-Path $PSScriptRoot '..' 'LetterboxdWatchedSync' 'LetterboxdWatchedSync.csproj'
+}
+
+function Get-PluginVersion {
+    param([string]$PluginName)
+
+    $projectPath = $projectByPlugin[$PluginName]
+    if (-not $projectPath -or -not (Test-Path -LiteralPath $projectPath -PathType Leaf)) {
+        throw "Missing project file for $PluginName."
+    }
+
+    [xml]$project = Get-Content -LiteralPath $projectPath -Raw
+    $version = @($project.Project.PropertyGroup | ForEach-Object { $_.Version } | Where-Object { $_ })[0]
+    if ([string]::IsNullOrWhiteSpace($version)) {
+        throw "Missing <Version> in $projectPath."
+    }
+
+    return [string]$version
+}
 
 $releaseManifest = foreach ($plugin in $sourceManifest) {
     $artifact = $artifactByPlugin[$plugin.name]
@@ -68,6 +90,7 @@ $releaseManifest = foreach ($plugin in $sourceManifest) {
     # A release manifest only advertises artifacts this run produced. This avoids
     # retaining historical entries that point at mutable main-branch binaries.
     $latest = $plugin.versions | Select-Object -First 1
+    $version = Get-PluginVersion -PluginName $plugin.name
     [ordered]@{
         category = $plugin.category
         guid = $plugin.guid
@@ -76,7 +99,7 @@ $releaseManifest = foreach ($plugin in $sourceManifest) {
         owner = $plugin.owner
         overview = $plugin.overview
         versions = @([ordered]@{
-            version = $latest.version
+            version = $version
             targetAbi = $latest.targetAbi
             sourceUrl = "https://github.com/$Repository/releases/download/$ReleaseTag/$artifact"
             checksum = $checksums[$artifact]
