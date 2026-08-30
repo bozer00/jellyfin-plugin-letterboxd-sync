@@ -8,36 +8,12 @@
     "overview": "A scheduled background task plugin that scrapes your public Letterboxd watchlist and updates a Jellyfin playlist with matched movies by title and production year.",
     "versions": [
       {
-        "version": "2.0.2.0",
+        "version": "2.0.3.0",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://raw.githubusercontent.com/bozer00/jellyfin-plugin-letterboxd-sync/main/build/LetterboxdSync.zip",
-        "checksum": "9ff257ac06b01bb15e06ce4a0b3773ac",
+        "sourceUrl": "https://github.com/bozer00/jellyfin-plugin-letterboxd-sync/releases/download/v2026.08.30/LetterboxdSync.zip",
+        "checksum": "8d48788cb95fcd76510f634cbf3d094c",
         "changelog": "Repackaged to exclude .deps.json and .pdb files to resolve assembly loading issues in Jellyfin.",
-        "timestamp": "2026-05-31 08:50:00"
-      },
-      {
-        "version": "2.0.1.0",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://raw.githubusercontent.com/bozer00/jellyfin-plugin-letterboxd-sync/main/build/LetterboxdSync.zip",
-        "checksum": "f7e7308a816d107969a66f5e34e1eb0b",
-        "changelog": "Fix empty playlist sync bug and prevent recreate-on-sync behaviors (stable GUIDs).",
-        "timestamp": "2026-05-31 08:21:00"
-      },
-      {
-        "version": "2.0.0.0",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://raw.githubusercontent.com/bozer00/jellyfin-plugin-letterboxd-sync/main/build/LetterboxdSync.zip",
-        "checksum": "32983f1fa9fe5bd313d1d6a9ecb93670",
-        "changelog": "Robust metadata ID matching (TMDb/IMDb), local cache, config UI dashboard stats, and Sync Now manual trigger.",
-        "timestamp": "2026-05-28 19:45:00"
-      },
-      {
-        "version": "1.0.2.0",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://raw.githubusercontent.com/bozer00/jellyfin-plugin-letterboxd-sync/main/build/LetterboxdSync.zip",
-        "checksum": "32983f1fa9fe5bd313d1d6a9ecb93670",
-        "changelog": "Initial release of the Letterboxd Watchlist Sync plugin.",
-        "timestamp": "2026-05-26 19:40:00"
+        "timestamp": "2026-08-30 09:17:39"
       }
     ]
   },
@@ -50,28 +26,12 @@
     "overview": "A metadata provider plugin that scrapes average ratings from Letterboxd for film items in your library using TMDb/IMDb IDs, featuring local caching and request serialization.",
     "versions": [
       {
-        "version": "1.0.3.0",
+        "version": "1.0.4.0",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://raw.githubusercontent.com/bozer00/jellyfin-plugin-letterboxd-sync/main/build/LetterboxdRatings.zip",
-        "checksum": "dd1038a63d10d8984833d34d9ddb6a9f",
+        "sourceUrl": "https://github.com/bozer00/jellyfin-plugin-letterboxd-sync/releases/download/v2026.08.30/LetterboxdRatings.zip",
+        "checksum": "f813cc3ea199cccd030de590d469cffd",
         "changelog": "Fix ratings not applied: switch to ICustomMetadataProvider to bypass metadata merge priority (Letterboxd now always overwrites TMDb/OMDb ratings).",
-        "timestamp": "2026-05-31 09:13:00"
-      },
-      {
-        "version": "1.0.2.0",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://raw.githubusercontent.com/bozer00/jellyfin-plugin-letterboxd-sync/main/build/LetterboxdRatings.zip",
-        "checksum": "7f424ae185a7f94d853400f627366d20",
-        "changelog": "Repackaged to exclude .deps.json and .pdb files to resolve assembly loading issues in Jellyfin.",
-        "timestamp": "2026-05-31 08:50:00"
-      },
-      {
-        "version": "1.0.1.0",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://raw.githubusercontent.com/bozer00/jellyfin-plugin-letterboxd-sync/main/build/LetterboxdRatings.zip",
-        "checksum": "a971a836b42e2e13bad9b7bba4029560",
-        "changelog": "Build targeting net9.0 runtime to resolve NotSupported load failures, and correct checksum validation.",
-        "timestamp": "2026-05-31 08:41:00"
+        "timestamp": "2026-08-30 09:17:39"
       }
     ]
   },
@@ -84,12 +44,12 @@
     "overview": "A scheduled background task plugin that scrapes a user's public Letterboxd watched list and automatically updates their played status for matched movies in Jellyfin.",
     "versions": [
       {
-        "version": "1.0.0.0",
+        "version": "1.0.1.0",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://raw.githubusercontent.com/bozer00/jellyfin-plugin-letterboxd-sync/main/build/LetterboxdWatchedSync.zip",
-        "checksum": "d9e409b5d7b3414b4bfb8fadcd842e3c",
+        "sourceUrl": "https://github.com/bozer00/jellyfin-plugin-letterboxd-sync/releases/download/v2026.08.30/LetterboxdWatchedSync.zip",
+        "checksum": "23c4790ff751b55c9543abf945dad2b2",
         "changelog": "Initial release of the Letterboxd Watched Sync plugin.",
-        "timestamp": "2026-05-31 16:30:00"
+        "timestamp": "2026-08-30 09:17:39"
       }
     ]
   }
