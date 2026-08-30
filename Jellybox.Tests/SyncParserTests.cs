@@ -113,5 +113,12 @@ namespace Jellybox.Tests
             Assert.Equal("505642", tmdbId);
             Assert.Equal("tt6710474", imdbId);
         }
+
+        [Fact]
+        public void HasNextPage_RequiresNextLinkWithHref()
+        {
+            Assert.True(LetterboxdSyncTask.HasNextPage("<a href=\"/user/watchlist/page/2/\" class=\"next\">Next</a>"));
+            Assert.False(LetterboxdSyncTask.HasNextPage("<span class=\"next disabled\">Next</span>"));
+        }
     }
 }

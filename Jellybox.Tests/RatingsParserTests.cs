@@ -99,5 +99,15 @@ namespace Jellybox.Tests
             // Assert
             Assert.Null(rating);
         }
+
+        [Fact]
+        public void ParseRatingFromHtml_WithOutOfRangeRating_ReturnsNull()
+        {
+            var provider = new LetterboxdRatingProvider(null!);
+
+            var rating = provider.ParseRatingFromHtml("<meta name=\"twitter:data2\" content=\"6.2 out of 5\">");
+
+            Assert.Null(rating);
+        }
     }
 }

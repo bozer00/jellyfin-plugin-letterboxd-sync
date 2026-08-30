@@ -5,6 +5,7 @@ using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Serialization;
 using LetterboxdRatings.Configuration;
+using LetterboxdRatings.Providers;
 
 namespace LetterboxdRatings
 {
@@ -21,6 +22,17 @@ namespace LetterboxdRatings
         public override Guid Id => Guid.Parse("9f8e404b-014f-4d92-965a-c60318ff24bb");
 
         public static Plugin? Instance { get; private set; }
+
+        public override void UpdateConfiguration(BasePluginConfiguration configuration)
+        {
+            if (configuration is PluginConfiguration ratingsConfiguration && ratingsConfiguration.ClearCacheRequested)
+            {
+                LetterboxdRatingProvider.ClearCache();
+                ratingsConfiguration.ClearCacheRequested = false;
+            }
+
+            base.UpdateConfiguration(configuration);
+        }
 
         public IEnumerable<PluginPageInfo> GetPages()
         {

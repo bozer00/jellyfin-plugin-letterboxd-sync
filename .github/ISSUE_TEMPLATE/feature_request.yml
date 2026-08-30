@@ -1,0 +1,28 @@
+name: Feature request
+description: Suggest a focused improvement to a Jellybox plugin.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: dropdown
+    id: plugin
+    attributes:
+      label: Plugin
+      options:
+        - Letterboxd Watchlist Sync
+        - Letterboxd Ratings
+        - Letterboxd Watched Sync
+        - Shared tooling or documentation
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true

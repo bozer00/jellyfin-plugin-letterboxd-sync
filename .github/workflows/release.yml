@@ -1,0 +1,57 @@
+name: Publish release artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Immutable Git tag to publish (for example, v2026.08.30)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+
+      - name: Set up the pinned .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore, build, and test all plugins
+        run: |
+          dotnet restore Jellybox.sln
+          dotnet build Jellybox.sln --configuration Release --no-restore
+          dotnet test Jellybox.Tests/Jellybox.Tests.csproj --configuration Release --no-build
+
+      - name: Package plugin ZIPs
+        run: bash ./build.sh
+
+      - name: Validate ZIP contents and generate catalog manifest
+        shell: pwsh
+        run: >-
+          ./scripts/Prepare-Release.ps1
+          -ArtifactDirectory build
+          -ReleaseTag '${{ inputs.release_tag }}'
+          -Repository '${{ github.repository }}'
+          -OutputManifest build/manifest.json
+
+      - name: Create immutable GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create '${{ inputs.release_tag }}'
+          build/LetterboxdSync.zip
+          build/LetterboxdRatings.zip
+          build/LetterboxdWatchedSync.zip
+          build/manifest.json
+          --target '${{ github.sha }}'
+          --title '${{ inputs.release_tag }}'
+          --generate-notes
