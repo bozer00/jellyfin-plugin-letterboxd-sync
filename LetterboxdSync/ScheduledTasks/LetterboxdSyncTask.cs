@@ -250,14 +250,7 @@ namespace LetterboxdSync.ScheduledTasks
                     });
                     
                     var entryIdsToRemove = currentItems.Select(i => i.Id.ToString("N", System.Globalization.CultureInfo.InvariantCulture)).ToList();
-                    if (entryIdsToRemove.Count > 0)
-                    {
-                        _logger.LogInformation("Clearing {Count} existing items from playlist.", entryIdsToRemove.Count);
-                        await _playlistManager.RemoveItemFromPlaylistAsync(playlist.Id.ToString(), entryIdsToRemove).ConfigureAwait(false);
-                    }
-                    
-                    _logger.LogInformation("Adding {Count} items to playlist for sync.", matchedMovieIds.Count);
-                    await _playlistManager.AddItemToPlaylistAsync(playlist.Id, matchedMovieIds.ToArray(), targetUser.Id).ConfigureAwait(false);
+                    await ApplyFullSyncAsync(playlist.Id, matchedMovieIds, entryIdsToRemove, targetUser.Id).ConfigureAwait(false);
                 }
                 else
                 {
@@ -285,6 +278,24 @@ namespace LetterboxdSync.ScheduledTasks
 
             progress.Report(100);
             _logger.LogInformation("Letterboxd watchlist sync completed.");
+        }
+
+        internal async Task ApplyFullSyncAsync(Guid playlistId, IReadOnlyCollection<Guid> matchedMovieIds, IReadOnlyCollection<string> originalEntryIds, Guid userId)
+        {
+            // Add the complete replacement first. If Jellyfin rejects this request, the existing
+            // playlist remains intact. Removing first could leave a user with an empty playlist.
+            _logger.LogInformation("Staging {Count} synced items before replacing existing playlist entries.", matchedMovieIds.Count);
+            await _playlistManager.AddItemToPlaylistAsync(playlistId, matchedMovieIds.ToArray(), userId).ConfigureAwait(false);
+
+            if (originalEntryIds.Count == 0)
+            {
+                return;
+            }
+
+            // On success, only remove the entries that existed before staging. The staged items
+            // remain in Letterboxd order. A removal failure can cause duplicates, but not data loss.
+            _logger.LogInformation("Removing {Count} original playlist entries after staging succeeded.", originalEntryIds.Count);
+            await _playlistManager.RemoveItemFromPlaylistAsync(playlistId.ToString(), originalEntryIds.ToList()).ConfigureAwait(false);
         }
 
         private async Task<LetterboxdFetchResult> FetchWatchlistAsync(string username, CancellationToken cancellationToken)
