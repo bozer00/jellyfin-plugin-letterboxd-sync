@@ -23,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Jellybox.Shared\Jellybox.Shared.csproj" />
     <ProjectReference Include="..\LetterboxdSync\LetterboxdSync.csproj" />
     <ProjectReference Include="..\LetterboxdRatings\LetterboxdRatings.csproj" />
     <ProjectReference Include="..\LetterboxdWatchedSync\LetterboxdWatchedSync.csproj" />

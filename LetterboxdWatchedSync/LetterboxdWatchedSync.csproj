@@ -23,9 +23,10 @@
      </PackageReference>
    </ItemGroup>
  
-   <ItemGroup>
-     <EmbeddedResource Include="Configuration\configPage.html" />
-   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Jellybox.Shared\Jellybox.Shared.csproj" />
+    <EmbeddedResource Include="Configuration\configPage.html" />
+  </ItemGroup>
 
    <ItemGroup>
      <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
