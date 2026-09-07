@@ -147,11 +147,45 @@ namespace Jellybox.Tests
                 () => task.FetchMovieExternalIdsAsync("a-film", cancellation.Token));
         }
 
+        [Fact]
+        public async Task FetchMovieExternalIdsAsync_ClassifiesServerFailureAsIncomplete()
+        {
+            using var httpClient = new HttpClient(new StatusCodeHandler(HttpStatusCode.ServiceUnavailable));
+            var task = new LetterboxdSyncTask(NullLogger<LetterboxdSyncTask>.Instance, null!, null!, null!, httpClient);
+
+            var result = await task.FetchMovieExternalIdsAsync("a-film", CancellationToken.None);
+
+            Assert.False(result.Completed);
+        }
+
+        [Fact]
+        public void IsCacheItemUsable_RetriesLegacyEmptyAndExpiredNegativeEntries()
+        {
+            var now = DateTime.UtcNow;
+
+            Assert.False(LetterboxdSyncTask.IsCacheItemUsable(new LetterboxdCacheItem(), now));
+            Assert.False(LetterboxdSyncTask.IsCacheItemUsable(new LetterboxdCacheItem { ExpiresAt = now.AddMinutes(-1) }, now));
+            Assert.True(LetterboxdSyncTask.IsCacheItemUsable(new LetterboxdCacheItem { ExpiresAt = now.AddHours(1) }, now));
+            Assert.True(LetterboxdSyncTask.IsCacheItemUsable(new LetterboxdCacheItem { TmdbId = "1" }, now));
+        }
+
         private sealed class CancellationHandler : HttpMessageHandler
         {
             protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             {
                 return Task.FromCanceled<HttpResponseMessage>(cancellationToken);
+            }
+        }
+
+        private sealed class StatusCodeHandler : HttpMessageHandler
+        {
+            private readonly HttpStatusCode _statusCode;
+
+            public StatusCodeHandler(HttpStatusCode statusCode) => _statusCode = statusCode;
+
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                return Task.FromResult(new HttpResponseMessage(_statusCode));
             }
         }
     }
