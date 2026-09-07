@@ -30,14 +30,14 @@ namespace LetterboxdWatchedSync.ScheduledTasks
             ILogger<LetterboxdWatchedSyncTask> logger,
             ILibraryManager libraryManager,
             IUserManager userManager,
-            IUserDataManager userDataManager)
+            IUserDataManager userDataManager,
+            HttpClient? httpClient = null)
         {
             _logger = logger;
             _libraryManager = libraryManager;
             _userManager = userManager;
             _userDataManager = userDataManager;
-            _httpClient = new HttpClient();
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            _httpClient = httpClient ?? CreateHttpClient();
         }
 
         public string Name => "Sync Letterboxd Watched History";
@@ -516,7 +516,7 @@ namespace LetterboxdWatchedSync.ScheduledTasks
             return Path.Combine(Path.GetDirectoryName(configPath) ?? string.Empty, "LetterboxdWatchedCache.json");
         }
 
-        private async Task<(string TmdbId, string ImdbId)> FetchMovieExternalIdsAsync(string slug, CancellationToken cancellationToken)
+        internal async Task<(string TmdbId, string ImdbId)> FetchMovieExternalIdsAsync(string slug, CancellationToken cancellationToken)
         {
             var url = $"https://letterboxd.com/film/{slug}/";
             _logger.LogInformation("Fetching film details from {Url}", url);
@@ -531,11 +531,22 @@ namespace LetterboxdWatchedSync.ScheduledTasks
                 var html = await response.Content.ReadAsStringAsync(cancellationToken);
                 return ParseExternalIdsFromHtml(html);
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching external IDs for film slug {Slug}", slug);
                 return (string.Empty, string.Empty);
             }
+        }
+
+        private static HttpClient CreateHttpClient()
+        {
+            var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            return httpClient;
         }
 
         internal static (string TmdbId, string ImdbId) ParseExternalIdsFromHtml(string html)

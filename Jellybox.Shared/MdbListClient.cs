@@ -149,6 +149,11 @@ namespace Jellybox.Shared;
             var page = await JsonSerializer.DeserializeAsync<MdbListItemsPage>(stream, JsonOptions, cancellationToken).ConfigureAwait(false)
                 ?? throw new JsonException("MDBList item response was empty.");
 
+            if (page.Pagination == null)
+            {
+                return MdbListFetchResult.Incomplete("MDBList item response did not include pagination metadata.");
+            }
+
             foreach (var movie in page.Movies ?? [])
             {
                 movies.Add(new MdbListMovie
@@ -160,8 +165,8 @@ namespace Jellybox.Shared;
                 });
             }
 
-            cursor = page.Pagination?.NextCursor;
-            if (page.Pagination?.HasMore == true && string.IsNullOrEmpty(cursor))
+            cursor = page.Pagination.NextCursor;
+            if (page.Pagination.HasMore && string.IsNullOrEmpty(cursor))
             {
                 return MdbListFetchResult.Incomplete("MDBList indicated more pages without a next cursor.");
             }

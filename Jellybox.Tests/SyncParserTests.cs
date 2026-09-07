@@ -1,6 +1,10 @@
 using Xunit;
 using LetterboxdSync.ScheduledTasks;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Threading;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Jellybox.Tests
 {
@@ -129,6 +133,26 @@ namespace Jellybox.Tests
         public void IsConfirmedEmptyTerminalPage_AcceptsOnlySuccessfulEmptyResponses(System.Net.HttpStatusCode statusCode, int filmCount, bool expected)
         {
             Assert.Equal(expected, LetterboxdSyncTask.IsConfirmedEmptyTerminalPage(statusCode, filmCount));
+        }
+
+        [Fact]
+        public async Task FetchMovieExternalIdsAsync_PropagatesRequestedCancellation()
+        {
+            using var httpClient = new HttpClient(new CancellationHandler());
+            var task = new LetterboxdSyncTask(NullLogger<LetterboxdSyncTask>.Instance, null!, null!, null!, httpClient);
+            using var cancellation = new CancellationTokenSource();
+            cancellation.Cancel();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => task.FetchMovieExternalIdsAsync("a-film", cancellation.Token));
+        }
+
+        private sealed class CancellationHandler : HttpMessageHandler
+        {
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                return Task.FromCanceled<HttpResponseMessage>(cancellationToken);
+            }
         }
     }
 }

@@ -88,6 +88,30 @@ public class MdbListClientTests
     }
 
     [Fact]
+    public async Task RefusesAnItemResponseWithoutPaginationMetadata()
+    {
+        var handler = new StubHandler(request => request.RequestUri!.AbsolutePath switch
+        {
+            "/external/lists/user" => Json("""
+                [{"id":42,"source":"letterboxd","url":"https://letterboxd.com/alice/watchlist/"}]
+                """),
+            "/external/lists/42/items" => Json("""
+                {"movies":[{"title":"A movie","release_year":2001,"ids":{"tmdb":1}}]}
+                """),
+            _ => new HttpResponseMessage(HttpStatusCode.NotFound)
+        });
+
+        using var httpClient = new HttpClient(handler);
+        var client = new MdbListClient(httpClient);
+
+        var result = await client.GetLetterboxdMoviesAsync("test-key", "alice", MdbListLetterboxdListKind.Watchlist, CancellationToken.None);
+
+        Assert.False(result.Completed);
+        Assert.Empty(result.Movies);
+        Assert.Contains("pagination metadata", result.Error);
+    }
+
+    [Fact]
     public async Task RefusesToUseAListForAnotherLetterboxdProfile()
     {
         var handler = new StubHandler(request => request.RequestUri!.AbsolutePath == "/external/lists/user"
