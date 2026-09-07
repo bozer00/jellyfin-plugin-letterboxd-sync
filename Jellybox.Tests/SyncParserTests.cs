@@ -120,5 +120,15 @@ namespace Jellybox.Tests
             Assert.True(LetterboxdSyncTask.HasNextPage("<a href=\"/user/watchlist/page/2/\" class=\"next\">Next</a>"));
             Assert.False(LetterboxdSyncTask.HasNextPage("<span class=\"next disabled\">Next</span>"));
         }
+
+        [Theory]
+        [InlineData(System.Net.HttpStatusCode.OK, 0, true)]
+        [InlineData(System.Net.HttpStatusCode.OK, 1, false)]
+        [InlineData(System.Net.HttpStatusCode.NotFound, 0, false)]
+        [InlineData(System.Net.HttpStatusCode.InternalServerError, 0, false)]
+        public void IsConfirmedEmptyTerminalPage_AcceptsOnlySuccessfulEmptyResponses(System.Net.HttpStatusCode statusCode, int filmCount, bool expected)
+        {
+            Assert.Equal(expected, LetterboxdSyncTask.IsConfirmedEmptyTerminalPage(statusCode, filmCount));
+        }
     }
 }

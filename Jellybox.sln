@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LetterboxdWatchedSync", "Le
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jellybox.Tests", "Jellybox.Tests\Jellybox.Tests.csproj", "{9F0F9FE8-07A6-4C2C-82DA-BBD056D0E0B2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jellybox.Shared", "Jellybox.Shared\Jellybox.Shared.csproj", "{A99A8221-0F68-4855-9EBA-87D09D8F9CF1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,6 +34,10 @@ Global
 		{9F0F9FE8-07A6-4C2C-82DA-BBD056D0E0B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9F0F9FE8-07A6-4C2C-82DA-BBD056D0E0B2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9F0F9FE8-07A6-4C2C-82DA-BBD056D0E0B2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A99A8221-0F68-4855-9EBA-87D09D8F9CF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A99A8221-0F68-4855-9EBA-87D09D8F9CF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A99A8221-0F68-4855-9EBA-87D09D8F9CF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A99A8221-0F68-4855-9EBA-87D09D8F9CF1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

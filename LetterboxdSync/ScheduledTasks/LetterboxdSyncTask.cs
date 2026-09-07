@@ -352,8 +352,19 @@ namespace LetterboxdSync.ScheduledTasks
         {
             try
             {
-                var response = await _httpClient.GetAsync($"https://letterboxd.com/{username}/watchlist/page/{page}/", cancellationToken).ConfigureAwait(false);
-                return response.StatusCode == System.Net.HttpStatusCode.NotFound;
+                using var response = await _httpClient.GetAsync($"https://letterboxd.com/{username}/watchlist/page/{page}/", cancellationToken).ConfigureAwait(false);
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    return true;
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return false;
+                }
+
+                var html = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                return IsConfirmedEmptyTerminalPage(response.StatusCode, ParseWatchlistHtml(html).Count);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -373,6 +384,11 @@ namespace LetterboxdSync.ScheduledTasks
                 .Any(match =>
                     Regex.IsMatch(match.Value, @"\bclass=""[^""]*\bnext\b[^""]*""", RegexOptions.IgnoreCase)
                     && Regex.IsMatch(match.Value, @"\bhref=""[^""]+""", RegexOptions.IgnoreCase));
+        }
+
+        internal static bool IsConfirmedEmptyTerminalPage(System.Net.HttpStatusCode statusCode, int filmCount)
+        {
+            return (int)statusCode is >= 200 and < 300 && filmCount == 0;
         }
 
         internal List<LetterboxdFilm> ParseWatchlistHtml(string html)
