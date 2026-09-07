@@ -141,29 +141,38 @@ namespace LetterboxdWatchedSync.ScheduledTasks
             bool cacheModified = false;
 
             var matchedMovieIds = new List<Guid>();
+            var matchedMovies = new List<BaseItem>();
             var unmatchedFilms = new List<UnmatchedFilmInfo>();
             int processed = 0;
             int markedCount = 0;
+            bool detailFetchIncomplete = false;
 
             foreach (var film in films)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (!cache.TryGetValue(film.Slug, out var cacheItem))
+                if (!cache.TryGetValue(film.Slug, out var cacheItem) || !IsCacheItemUsable(cacheItem, DateTime.UtcNow))
                 {
                     // Delay to respect rate limits
                     await Task.Delay(1000, cancellationToken);
 
-                    var (tmdbId, imdbId) = await FetchMovieExternalIdsAsync(film.Slug, cancellationToken);
+                    var externalIds = await FetchMovieExternalIdsAsync(film.Slug, cancellationToken);
+                    if (!externalIds.Completed)
+                    {
+                        _logger.LogWarning("Letterboxd detail retrieval for '{Title}' did not complete. Played states will not be changed.", film.Title);
+                        detailFetchIncomplete = true;
+                        break;
+                    }
 
                     cacheItem = new LetterboxdCacheItem
                     {
                         Slug = film.Slug,
                         Title = film.Title,
                         Year = film.Year,
-                        TmdbId = tmdbId,
-                        ImdbId = imdbId,
-                        CachedAt = DateTime.UtcNow
+                        TmdbId = externalIds.TmdbId,
+                        ImdbId = externalIds.ImdbId,
+                        CachedAt = DateTime.UtcNow,
+                        ExpiresAt = GetCacheExpiry(externalIds.TmdbId, externalIds.ImdbId, DateTime.UtcNow)
                     };
                     cache[film.Slug] = cacheItem;
                     cacheModified = true;
@@ -173,19 +182,8 @@ namespace LetterboxdWatchedSync.ScheduledTasks
                 if (matchedMovie != null)
                 {
                     matchedMovieIds.Add(matchedMovie.Id);
+                    matchedMovies.Add(matchedMovie);
                     _logger.LogDebug("Matched: '{Title}' ({Year}) -> Jellyfin ID {Id}", film.Title, film.Year, matchedMovie.Id);
-
-                    // Update playstate
-                    var userData = _userDataManager.GetUserData(targetUser, matchedMovie);
-                    if (userData != null && !userData.Played)
-                    {
-                        userData.Played = true;
-                        userData.PlayCount = Math.Max(userData.PlayCount, 1);
-                        userData.LastPlayedDate = DateTime.UtcNow;
-                        _userDataManager.SaveUserData(targetUser, matchedMovie, userData, UserDataSaveReason.TogglePlayed, cancellationToken);
-                        markedCount++;
-                        _logger.LogInformation("Marked '{Title}' as Played for user {User}", matchedMovie.Name, targetUser.Username);
-                    }
                 }
                 else
                 {
@@ -202,9 +200,31 @@ namespace LetterboxdWatchedSync.ScheduledTasks
                 progress.Report(10 + 90 * ((double)processed / films.Count));
             }
 
+            if (detailFetchIncomplete)
+            {
+                _logger.LogError("Letterboxd detail retrieval did not complete. Played states will not be changed.");
+                progress.Report(100);
+                return;
+            }
+
             if (cacheModified)
             {
                 SaveCache(cache);
+            }
+
+            foreach (var matchedMovie in matchedMovies)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var userData = _userDataManager.GetUserData(targetUser, matchedMovie);
+                if (userData != null && !userData.Played)
+                {
+                    userData.Played = true;
+                    userData.PlayCount = Math.Max(userData.PlayCount, 1);
+                    userData.LastPlayedDate = DateTime.UtcNow;
+                    _userDataManager.SaveUserData(targetUser, matchedMovie, userData, UserDataSaveReason.TogglePlayed, cancellationToken);
+                    markedCount++;
+                    _logger.LogInformation("Marked '{Title}' as Played for user {User}", matchedMovie.Name, targetUser.Username);
+                }
             }
 
             // Cap unmatched films at 200 to prevent large XML config size
@@ -516,7 +536,7 @@ namespace LetterboxdWatchedSync.ScheduledTasks
             return Path.Combine(Path.GetDirectoryName(configPath) ?? string.Empty, "LetterboxdWatchedCache.json");
         }
 
-        internal async Task<(string TmdbId, string ImdbId)> FetchMovieExternalIdsAsync(string slug, CancellationToken cancellationToken)
+        internal async Task<ExternalIdFetchResult> FetchMovieExternalIdsAsync(string slug, CancellationToken cancellationToken)
         {
             var url = $"https://letterboxd.com/film/{slug}/";
             _logger.LogInformation("Fetching film details from {Url}", url);
@@ -525,11 +545,12 @@ namespace LetterboxdWatchedSync.ScheduledTasks
                 var response = await _httpClient.GetAsync(url, cancellationToken);
                 if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
-                    return (string.Empty, string.Empty);
+                    return ExternalIdFetchResult.Complete(string.Empty, string.Empty);
                 }
                 response.EnsureSuccessStatusCode();
                 var html = await response.Content.ReadAsStringAsync(cancellationToken);
-                return ParseExternalIdsFromHtml(html);
+                var (tmdbId, imdbId) = ParseExternalIdsFromHtml(html);
+                return ExternalIdFetchResult.Complete(tmdbId, imdbId);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -538,8 +559,26 @@ namespace LetterboxdWatchedSync.ScheduledTasks
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching external IDs for film slug {Slug}", slug);
-                return (string.Empty, string.Empty);
+                return ExternalIdFetchResult.Incomplete();
             }
+        }
+
+        internal static bool IsCacheItemUsable(LetterboxdCacheItem cacheItem, DateTime utcNow)
+        {
+            if (cacheItem.ExpiresAt > utcNow)
+            {
+                return true;
+            }
+
+            return cacheItem.ExpiresAt == default
+                && (!string.IsNullOrWhiteSpace(cacheItem.TmdbId) || !string.IsNullOrWhiteSpace(cacheItem.ImdbId));
+        }
+
+        private static DateTime GetCacheExpiry(string tmdbId, string imdbId, DateTime utcNow)
+        {
+            return string.IsNullOrWhiteSpace(tmdbId) && string.IsNullOrWhiteSpace(imdbId)
+                ? utcNow.AddHours(6)
+                : utcNow.AddDays(30);
         }
 
         private static HttpClient CreateHttpClient()
@@ -595,6 +634,24 @@ namespace LetterboxdWatchedSync.ScheduledTasks
         public string TmdbId { get; set; } = string.Empty;
         public string ImdbId { get; set; } = string.Empty;
         public DateTime CachedAt { get; set; }
+        public DateTime ExpiresAt { get; set; }
+    }
+
+    internal sealed class ExternalIdFetchResult
+    {
+        private ExternalIdFetchResult(string tmdbId, string imdbId, bool completed)
+        {
+            TmdbId = tmdbId;
+            ImdbId = imdbId;
+            Completed = completed;
+        }
+
+        public string TmdbId { get; }
+        public string ImdbId { get; }
+        public bool Completed { get; }
+
+        public static ExternalIdFetchResult Complete(string tmdbId, string imdbId) => new(tmdbId, imdbId, true);
+        public static ExternalIdFetchResult Incomplete() => new(string.Empty, string.Empty, false);
     }
 
     public class UnmatchedFilmInfo
